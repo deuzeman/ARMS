@@ -23,13 +23,13 @@ struct params
 
   size_t iter;
   std::string output;
-  
+
   params();
   params(double const m, double const a6, double const a7, double const a8);
 };
 
 inline params::params()
-  : N(20),
+    : N(20),
     nu(0),
     m(0.05),
     a6(0.0),
@@ -40,7 +40,7 @@ inline params::params()
 {}
 
 inline params::params(double const m, double const a6, double const a7, double const a8)
-  : N(20),
+    : N(20),
     nu(0),
     m(m),
     a6(a6),
@@ -54,28 +54,28 @@ params *parseInput(char const *filename);
 
 class RanMat
 {
-  size_t const d_N;
-  size_t const d_nu;
-  size_t const d_nEigs;
+    size_t const d_N;
+    size_t const d_nu;
+    size_t const d_nEigs;
 
-  double d_m;
-  double d_a6;
-  double d_a7;
-  double d_a8;
-  
-  double const d_scale;
-  
-  MCD d_Z;
-  MCD d_M;
+    double d_m;
+    double d_a6;
+    double d_a7;
+    double d_a8;
 
-  MCD d_A;
-  MCD d_B;
-  MCD d_W;
+    double const d_scale;
 
-  ADD d_result;
-  
-  Eigen::SelfAdjointEigenSolver< MCD > d_slv;
-  StochasticLib1 d_rstream;
+    MCD d_Z;
+    MCD d_M;
+
+    MCD d_A;
+    MCD d_B;
+    MCD d_W;
+
+    ADD d_result;
+
+    Eigen::SelfAdjointEigenSolver< MCD > d_slv;
+    StochasticLib1 d_rstream;
 
   public:
     RanMat(params const *par, int const seed);
@@ -83,7 +83,7 @@ class RanMat
 
     void calculate(size_t const iter, bool const extend = false);
     double const &result(size_t const nSam, size_t const nEig) const;
-    
+
     double avResult(size_t const nEig) const;
     double avRatio(size_t const num, size_t const den) const;
 };

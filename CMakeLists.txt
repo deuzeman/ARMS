@@ -10,6 +10,7 @@ include_directories ("${PROJECT_SOURCE_DIR}/RanMat")
 include_directories ("/usr/src/linux-headers-2.6.38-8/arch/ia64/include")
 add_subdirectory (Random) 
 add_subdirectory (RanMat)
+add_subdirectory (Minim)
 
 # add the executable
 add_executable(arms arms.cpp parseInput.cpp)
