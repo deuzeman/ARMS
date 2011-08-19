@@ -43,9 +43,9 @@ int main(int argc, char **argv)
           << "# N:    " << par->N    << '\n'
           << "# nu:   " << par->nu   << '\n'
           << "# m:    " << par->m    << '\n'
-          << "# a6:   " << par->a6   << '\n'
-          << "# a7:   " << par->a7   << '\n'
-          << "# a8:   " << par->a8   << '\n'
+          << "# a6:   " << par->a6    << '\n'
+          << "# a7:   " << par->a7    << '\n'
+          << "# a8:   " << par->a8    << '\n'
           << "# iter: " << par->iter << '\n'
           << '#'                     << std::endl;
 
