@@ -40,7 +40,7 @@ int main(int argc, char **argv)
   RanMat generator(par->N, par->nu, par->nEigs, par->nDet, time(0));
 
   std::ofstream rstream(par->output.c_str(), std::ifstream::trunc);
-  rstream << "# ARMS v2.1 output file\n"
+  rstream << "# ARMS v2.0 output file\n"
           << "# Scaling massless operator with inverse sqrt(N)\n"
           << "# Extended version, with three Wilson operators in the action.\n"
           << "# Run with the following parameters\n"
@@ -55,19 +55,16 @@ int main(int argc, char **argv)
           << "# iter:  " << par->iter  << '\n'
           << '#'                       << std::endl;
 
-  rstream << std::setw(10) << ' ';
-  for (int x = -(par->nEigs / 2); x < (par->nEigs / 2 + par->nEigs % 2); ++x)
-  {
+  rstream << "                  ";
+  for (int x = -(par->nEigs / 2); x < (par->nEigs / 2 + par->nEigs % 2); ++x) {
     int colNum = (x < 0) ? x : x + 1;
-    std::ostringstream colLab;
     if (x < 0)
-      colLab << "\"EV.m" << -colNum << '\"';
+      rstream << "\"EV.m" << -colNum << "\"        ";
     else
-      colLab << "\"EV.p" << colNum << '\"';
-   rstream << std::setw(15) << colLab.str();
+      rstream << "\"EV.p" <<  colNum << "\"        ";
   }
   if (par->nDet > 0)
-    rstream << std::setw(15) << "\"Det\"";
+    rstream << "\"Det\"";
   rstream << std::endl;
 
   Eigen::ArrayXd rmtPars(4);

@@ -1,28 +1,28 @@
 #include <Minim.h>
 
-double Minim::chiSq(Eigen::ArrayXd const &pars, size_t const iter) const
+double Minim::chiSq(Eigen::ArrayXd const &pars, size_t const iter)
 {
   d_generator.calculate(pars, iter);
   double result = 0.0;
-  size_t iter = 0;
+  size_t ctr = 0;
   for (size_t num = 0; num < (d_nEigs - 1); ++num)
-    for (size_t den = num, den < d_nEigs, ++den)
+    for (size_t den = num; den < d_nEigs; ++den)
     {
-      double residue = (data.coeffRef(0, iter) - d_generator.avRation(num, den)) / data.coeffRef(1, iter);
+      double residue = (d_data.coeffRef(0, ctr) - d_generator.avRatio(num, den)) / d_data.coeffRef(1, ctr);
       result += residue * residue;
-      ++iter;
+      ++ctr;
     }
   return result;
 }
 
 
-double Minim::brent(Eigen::ArrayXd const &center, Eigen::ArrayXd const &dir, Eigen::ArrayXXd const &bounds, size_t const rmIters, double const tol) const
+double Minim::brent(Eigen::ArrayXd const &center, Eigen::ArrayXd const &dir, Eigen::ArrayXXd const &bounds, size_t const rmIters, double const tol)
 {
   double const cgold = 0.3819660;
 
   Eigen::ArrayXXd limits(bounds);
-  limits.row(0) = (bounds.row(0) - center.col(idx)) / dir.col(idx);
-  limits.row(1) = (bounds.row(1) - d_pars.col(idx)) / d_dirs.col(idx); // Can be better, perhaps.
+  limits.row(0) = (bounds.row(0) - center) / dir.col(0);
+  limits.row(1) = (bounds.row(1) - center) / dir.col(1); // Can be better, perhaps.
 
   double a = limits.coeff(0, limits.row(0).minCoeff());
   double b = limits.coeff(1, limits.row(1).maxCoeff());
@@ -33,6 +33,7 @@ double Minim::brent(Eigen::ArrayXd const &center, Eigen::ArrayXd const &dir, Eig
   double v = 0.0;
 
   double fx = chiSq(center, rmIters);
+  double fu = fx;
   double fv = fx;
   double fw = fx;
 
@@ -112,9 +113,10 @@ double Minim::brent(Eigen::ArrayXd const &center, Eigen::ArrayXd const &dir, Eig
     }
   }
   std::cerr << "[BRENT] Warning: Iteration count exceeded!" << std::endl;
+  return x;
 }
 
-void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, size_t const powIters = 100, double const tol = 1e-8) const
+void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, size_t const rmIters, size_t const powIters, double const tol)
 {
   double const tiny = 1.0E-25;
   size_t const n = start.size();
@@ -129,22 +131,22 @@ void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, 
   for (size_t iter = 0; iter < powIters; ++iter)
   {
     for (size_t idx = 0; idx < n - 1; idx)
-      pars.col(idx + 1) = pars.col(idx) + brent(pars.col(idx), dirs.col(idx)), bounds) * dirs.col(idx);
+      pars.col(idx + 1) = pars.col(idx) + brent(pars.col(idx), dirs.col(idx), bounds, rmIters, tol) * dirs.col(idx);
 
     for (size_t idx = 0; idx < n - 2; idx)
-      dirs.col(idx).swap(dirs.col(idx + 1))
+      dirs.col(idx).swap(dirs.col(idx + 1));
 
     dirs.col(n - 1) = pars.col(n) - pars.col(0);
-    Eigen::MatrixXd newP0 = pars.col(n) + brent(pars.col(n), dirs.col(n - 1)), bounds) * dirs.col(n - 1);
+    Eigen::MatrixXd newP0 = pars.col(n) + brent(pars.col(n), dirs.col(n - 1), bounds, rmIters, tol) * dirs.col(n - 1);
 
-    if (((newP0 - pars.col(0)).norm2()) < tol)
+    if (((newP0 - pars.col(0)).squaredNorm()) < tol)
     {
       d_res = newP0;
-      return
+      return;
     }
 
     // Reorthogonalize to avoid linear dependency build-up, pace Brent & NR.
-    Eigen::JacobiSVD<MatrixXd> svd(dirs, Eigen::ComputeFullU);
+    Eigen::JacobiSVD< Eigen::MatrixXd > svd(dirs, Eigen::ComputeFullU);
 
     dirs = svd.matrixU();
   }

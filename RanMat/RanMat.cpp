@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <iostream>
 
-RanMat::RanMat(size_t const N, size_t const nu, size_t const nEigs, size_t const seed)
+RanMat::RanMat(size_t const N, size_t const nu, size_t const nEigs, size_t const nDet, size_t const seed)
   : d_N(N),
     d_nu(nu),
     d_nEigs(nEigs),
+    d_nDet(nDet),
+    d_seed(seed),
     d_scale(0.5 / std::sqrt(static_cast< double >(2 * d_N + d_nu))),
     d_Z(MCD::Zero(2 * d_N + d_nu, 2 * d_N + d_nu)),
     d_M(MCD::Zero(2 * d_N + d_nu, 2 * d_N + d_nu)),
@@ -15,7 +17,7 @@ RanMat::RanMat(size_t const N, size_t const nu, size_t const nEigs, size_t const
     d_W(d_N + d_nu, d_N),
     d_slv(2 * d_N + d_nu),
     d_result(2 * d_N + d_nu, d_nEigs),
-    d_rstream(seed)
+    d_rstream(d_seed)
 {}
 
 void RanMat::calculate(Eigen::ArrayXd const &params, size_t const iter, bool const extend)
@@ -30,9 +32,13 @@ void RanMat::calculate(Eigen::ArrayXd const &params, size_t const iter, bool con
   {
     offset = d_result.rows();
     d_result.conservativeResize(offset + iter, d_nEigs);
+    d_det.conservativeResize(offset + iter);
   }
   else
+  {
     d_result.resize(iter, d_nEigs);
+    d_det.resize(iter);
+  }
 
   for (int x = 0; x < d_N + d_nu; ++x)
     d_M(x, x) = m;
@@ -75,6 +81,7 @@ void RanMat::calculate(Eigen::ArrayXd const &params, size_t const iter, bool con
 
     d_slv.compute(d_Z, Eigen::EigenvaluesOnly);
     d_result.row(ctr) = d_slv.eigenvalues().segment(d_N - (d_nEigs / 2), d_nEigs);
+    d_det[ctr] = (d_nDet > 0) ? d_slv.eigenvalues().segment(d_N -(d_nDet / 2), d_nDet).prod() : 0;
   }
 }
 

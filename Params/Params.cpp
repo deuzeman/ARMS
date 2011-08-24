@@ -1,15 +1,13 @@
 #include <fstream>
 #include <iostream>
-#include <string>
 
-#include <RanMat.h>
-#include <XLat.h>
+#include <Params.h>
 
-params *parseInput(char const *filename)
+Params *parseInput(char const *filename)
 {
   std::ifstream input(filename);
   char line[256];
-  params *result = new params();
+  Params *result = new Params();
 
   while(input.getline(line, 256))
   {
@@ -54,6 +52,20 @@ params *parseInput(char const *filename)
     {
       size_t idx = sline.find("=");
       result->a8 = XLat(sline.c_str() + idx + 1);
+      continue;
+    }
+
+    if (sline.find("nEigs = ") != sline.npos)
+    {
+      size_t idx = sline.find("=");
+      result->nEigs = XLat(sline.c_str() + idx + 1);
+      continue;
+    }
+
+    if (sline.find("nDet = ") != sline.npos)
+    {
+      size_t idx = sline.find("=");
+      result->nDet = XLat(sline.c_str() + idx + 1);
       continue;
     }
 
