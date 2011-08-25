@@ -33,6 +33,36 @@ struct Params
   size_t nDet;
   size_t iter;
   std::string output;
+  
+  Params(char const *filename);
+  void parseInput(char const *filename);
 };
 
-Params *parseInput(char const *filename);
+inline Params::Params(char const *filename)
+{
+  parseInput(filename);
+}
+
+struct FitParams
+{
+  size_t N;
+  size_t nu;
+  double m;
+  double a6;
+  double a7;
+  double a8;
+  int    nEigs;
+  size_t nDet;
+  size_t iter;
+  
+  std::string dataFile;
+  std::string output;
+  
+  Params(char const *filename);
+  void parseInput(char const *filename);
+};
+
+inline FitParams::FitParams(char const *filename)
+{
+  parseInput(filename);
+}

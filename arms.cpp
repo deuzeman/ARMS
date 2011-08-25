@@ -5,14 +5,13 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include <vector>
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <Random/stocc.h>
 
-#include <RanMat.h>
 #include <Params.h>
+#include <RanMat.h>
 
 int main(int argc, char **argv)
 {
@@ -36,7 +35,8 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  Params *par = parseInput(argv[1]);
+  Params par(argv[1]);
+  
   RanMat generator(par->N, par->nu, par->nEigs, par->nDet, time(0));
 
   std::ofstream rstream(par->output.c_str(), std::ifstream::trunc);

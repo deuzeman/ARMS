@@ -1,8 +1,8 @@
-cmake_minimum_required (VERSION 2.4)
+cmake_minimum_required (VERSION 2.6)
 project (ARMS)
-# The version number.
-set (Tutorial_VERSION_MAJOR 0)
-set (Tutorial_VERSION_MINOR 1)
+
+set (ARMS_VERSION_MAJOR 2)
+set (ARMS_VERSION_MINOR 1)
 
 include_directories ("${PROJECT_SOURCE_DIR}/")
 include_directories ("${PROJECT_SOURCE_DIR}/Eigen")
@@ -16,6 +16,9 @@ add_subdirectory (Params)
 add_subdirectory (Random)
 add_subdirectory (RanMat)
 
-# add the executable
 add_executable(arms arms.cpp)
 target_link_libraries(arms random ranmat params)
+
+add_executable(rmfit rmfit.cpp)
+target_link_libraries(rmfit random ranmat params)
+
