@@ -1,20 +1,10 @@
-#include <algorithm>
-#include <complex>
-#include <cstdlib>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <sstream>
-
-#include <Eigen/Dense>
-#include <Eigen/Eigenvalues>
-#include <Random/stocc.h>
-
-#include <RanMat.h>
-#include <Params.h>
+#include <Data.h>
 
 int main(int argc, char **argv)
 {
-  std::ifstream dataFile(par->output.c_str(), std::ifstream::trunc);
+  Data data("test.dat");
+  std::cout << data.average(1000).row(1) / data.average(1000).row(0) << std::endl;
+  std::cout << data.ratios(1000).row(1) / data.ratios(1000).row(0) << std::endl;
+  std::cout << data.cumulant().leftCols(3) << std::endl;
   return 0;
 }

@@ -33,7 +33,7 @@ struct Params
   size_t nDet;
   size_t iter;
   std::string output;
-  
+
   Params(char const *filename);
   void parseInput(char const *filename);
 };
@@ -54,11 +54,11 @@ struct FitParams
   int    nEigs;
   size_t nDet;
   size_t iter;
-  
+
   std::string dataFile;
   std::string output;
   
-  Params(char const *filename);
+  FitParams(char const *filename);
   void parseInput(char const *filename);
 };
 
