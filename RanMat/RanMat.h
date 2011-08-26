@@ -28,7 +28,10 @@ class RanMat
   MCD d_W;
 
   ADD d_result;
+
   Eigen::ArrayXd d_det;
+  Eigen::ArrayXd d_ratios;
+  Eigen::ArrayXd d_average;
 
   Eigen::SelfAdjointEigenSolver< MCD > d_slv;
   StochasticLib1 d_rstream;
@@ -40,8 +43,8 @@ class RanMat
     double const &result(size_t const nSam, size_t const nEig) const;
     double const &det(size_t const nSam) const;
 
-    double avResult(size_t const nEig) const;
-    double avRatio(size_t const num, size_t const den) const;
+    Eigen::ArrayXd const &average() const;
+    Eigen::ArrayXd const &ratios() const;
 };
 
 inline double const &RanMat::result(size_t const nSam, size_t const nEig) const
@@ -54,12 +57,12 @@ inline double const &RanMat::det(size_t const nSam) const
   return d_det.coeffRef(nSam);
 }
 
-inline double RanMat::avResult(size_t const nEig) const
+inline Eigen::ArrayXd const &RanMat::average() const
 {
-  return d_result.col(nEig).mean();
+  return d_average;
 }
 
-inline double RanMat::avRatio(size_t const num, size_t const den) const
+inline Eigen::ArrayXd const &RanMat::ratios() const
 {
-  return d_result.col(num).cwiseQuotient(d_result.col(den)).mean();
+  return d_ratios;
 }

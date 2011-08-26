@@ -3,15 +3,9 @@
 double Minim::chiSq(Eigen::ArrayXd const &pars, size_t const iter)
 {
   d_generator.calculate(pars, iter);
-  double result = 0.0;
-  size_t ctr = 0;
-  for (size_t num = 0; num < (d_nEigs - 1); ++num)
-    for (size_t den = num; den < d_nEigs; ++den)
-    {
-      double residue = (d_data.coeffRef(0, ctr) - d_generator.avRatio(num, den)) / d_data.coeffRef(1, ctr);
-      result += residue * residue;
-      ++ctr;
-    }
+  Eigen::ArrayXXd dataRats = d_data.ratios(1000);
+  double result = ((dataRats.row(0) - d_generator.ratios()) / dataRats.row(1)).square().sum(); // NOTE d_generator will always be symmetric, data won't be necessarily. Introduce that flexibility ?!
+  std::cerr << "[DEBUG] Chi-squared:  " << result << std::endl;
   return result;
 }
 
@@ -21,11 +15,11 @@ double Minim::brent(Eigen::ArrayXd const &center, Eigen::ArrayXd const &dir, Eig
   double const cgold = 0.3819660;
 
   Eigen::ArrayXXd limits(bounds);
-  limits.row(0) = (bounds.row(0) - center) / dir.col(0);
-  limits.row(1) = (bounds.row(1) - center) / dir.col(1); // Can be better, perhaps.
+/*  limits.row(0) = (bounds.row(0) - center) / dir;
+  limits.row(1) = (bounds.row(1) - center) / dir; // Can be better, perhaps.
 
   double a = limits.coeff(0, limits.row(0).minCoeff());
-  double b = limits.coeff(1, limits.row(1).maxCoeff());
+  double b = limits.coeff(1, limits.row(1).maxCoeff());*/
   double x = 0.0;
 
   double u = 0.0;
@@ -42,7 +36,7 @@ double Minim::brent(Eigen::ArrayXd const &center, Eigen::ArrayXd const &dir, Eig
 
   for (size_t iter = 0; iter < 100; ++iter)
   {
-    double xm = 0.5 * (a + b);
+/*    double xm = 0.5 * (a + b);
     double tol1 = tol * std::abs(x) + 1e-10;
     if (std::abs(x - xm) <= (2 * tol1 - xm))
       return x;
@@ -110,7 +104,7 @@ double Minim::brent(Eigen::ArrayXd const &center, Eigen::ArrayXd const &dir, Eig
           v = u;
           fv = fu;
         }
-    }
+    }*/
   }
   std::cerr << "[BRENT] Warning: Iteration count exceeded!" << std::endl;
   return x;
@@ -127,13 +121,13 @@ void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, 
   Eigen::MatrixXd pars = Eigen::MatrixXd::Zero(n, n + 1);
 
   pars.col(0) = start;
-
+  
   for (size_t iter = 0; iter < powIters; ++iter)
   {
-    for (size_t idx = 0; idx < n - 1; idx)
+    for (size_t idx = 0; idx < n - 1; ++idx)
       pars.col(idx + 1) = pars.col(idx) + brent(pars.col(idx), dirs.col(idx), bounds, rmIters, tol) * dirs.col(idx);
 
-    for (size_t idx = 0; idx < n - 2; idx)
+    for (size_t idx = 0; idx < n - 2; ++idx)
       dirs.col(idx).swap(dirs.col(idx + 1));
 
     dirs.col(n - 1) = pars.col(n) - pars.col(0);

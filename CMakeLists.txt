@@ -22,5 +22,5 @@ add_executable(arms arms.cpp)
 target_link_libraries(arms random ranmat params)
 
 add_executable(rmfit rmfit.cpp)
-target_link_libraries(rmfit data)
+target_link_libraries(rmfit data minim)
 

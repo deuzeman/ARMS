@@ -28,6 +28,8 @@ void RanMat::calculate(Eigen::ArrayXd const &params, size_t const iter, bool con
   double const &a7 = params.coeffRef(2);
   double const &a8 = params.coeffRef(3);
 
+  std::cout << "[DEBUG] Calculating:  " << params.transpose() << std::endl;
+  
   if (extend)
   {
     offset = d_result.rows();
@@ -83,5 +85,12 @@ void RanMat::calculate(Eigen::ArrayXd const &params, size_t const iter, bool con
     d_result.row(ctr) = d_slv.eigenvalues().segment(d_N - (d_nEigs / 2), d_nEigs);
     d_det[ctr] = (d_nDet > 0) ? d_slv.eigenvalues().segment(d_N -(d_nDet / 2), d_nDet).prod() : 0;
   }
+
+  d_average = d_result.colwise().mean();
+  d_ratios.resize(d_result.cols() * (d_result.cols() - 1) / 2);
+  size_t ctr = 0;
+  for (size_t num = 0; num < d_result.cols() - 1; ++num)
+    for (size_t den = num + 1; den < d_result.cols(); ++den)
+      d_ratios[ctr++] = (d_result.col(num) / d_result.col(den)).mean();
 }
 

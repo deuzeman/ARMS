@@ -32,12 +32,12 @@ void Data::bootstrap(size_t const nBoot, Eigen::ArrayXXd const &data) const
   {
     for (size_t sampCtr = 0; sampCtr < data.rows(); ++sampCtr)
       bootSamp.row(sampCtr) = data.row(sampler.IRandomX(0, data.rows() - 1));
-    bootHist.row(bootCtr) = (bootSamp.colwise().sum() / static_cast< double >(data.rows()));
+    bootHist.row(bootCtr) = (bootSamp.colwise().mean());
   }
 
   // Calculate the standard deviation from this.
-  d_summary.row(1) = bootHist.square().colwise().sum() / static_cast< double >(nBoot);
-  d_summary.row(1) -= (bootHist.colwise().sum() / static_cast< double >(nBoot)).square();
+  d_summary.row(1) = bootHist.square().colwise().mean();
+  d_summary.row(1) -= bootHist.colwise().mean().square();
 }
 
 Eigen::ArrayXXd const &Data::average(size_t const nBoot) const
@@ -45,7 +45,7 @@ Eigen::ArrayXXd const &Data::average(size_t const nBoot) const
   if (d_cur != AVE)
   {
     d_summary.resize(2, d_data.cols());
-    d_summary.row(0) = (d_data.colwise().sum() / static_cast< double >(d_data.rows()));
+    d_summary.row(0) = d_data.colwise().mean();
 
     bootstrap(nBoot, d_data);
 
@@ -68,7 +68,7 @@ Eigen::ArrayXXd const &Data::ratios(size_t const nBoot) const
       for (size_t den = num + 1; den < d_data.cols(); ++den)
         ratios.col(ctr++) =  d_data.col(num) / d_data.col(den);
 
-    d_summary.row(0) = (ratios.colwise().sum() / static_cast< double >(d_data.rows()));
+    d_summary.row(0) = ratios.colwise().mean();
 
     bootstrap(nBoot, ratios);
 
