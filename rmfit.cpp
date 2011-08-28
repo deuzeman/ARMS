@@ -9,7 +9,7 @@ int main(int argc, char **argv)
   Eigen::ArrayXd start(4);
   start << 0.05, 0.0, 0.0, 0.02;
   Eigen::ArrayXXd bounds(2,4);
-  bounds << 0.0, 0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 0.5; 
-  minim.powell(start, bounds, 50000, 50, 2.5e-3);
+  bounds << 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0; 
+  minim.powell(start, bounds, 50, 50, 1e-8);
   return 0;
 }

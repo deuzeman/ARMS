@@ -14,26 +14,12 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
   double const cgold = 0.3819660;
 
   Eigen::ArrayXXd limits(bounds);
-  
-  limits.row(0) = bounds.row(0) - center;
-  limits.row(1) = bounds.row(1) - center; // Can be better, perhaps -- replicate somehow.
+  limits.row(0) = (bounds.row(0) - center) / dir;
+  limits.row(1) = (bounds.row(1) - center) / dir; // Can be better, perhaps.
 
-  double a = 0.0;
-  double b = 0.0;
+  double a = limits.coeff(0, limits.row(0).minCoeff());
+  double b = limits.coeff(1, limits.row(1).maxCoeff());
   double x = 0.0;
-
-  // Bounds need to be calculated where the direction is non-zero.
-  for (size_t col = 0; col < limits.cols(); ++col)
-    for (size_t row = 0; row < limits.rows(); ++row)
-    {
-      if (dir(col) == 0.0)
-	continue;
-      double tmp = limits(row, col) / dir(col);
-      if (tmp < 0)
-        a = (tmp < a) ? tmp : a;
-      else
-	b = (tmp > b) ? tmp : b;
-    }
 
   double u = 0.0;
   double w = 0.0;
@@ -49,36 +35,41 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
 
   for (size_t iter = 0; iter < 100; ++iter)
   {
-    std::cerr << "[DEBUG -- BRENT] a, x, b, fx, fu: " << a << ' ' << x << ' ' << b << ' ' << fx << ' ' << fu << std::endl;
-
+    std::cerr << "[DEBUG -- BRENT] a, x, b: " << a << ' ' << x << ' ' << b << std::endl;
     double xm = 0.5 * (a + b);
-    e = (x > xm) ? (a - x) : (b - x);
-    if (std::abs(e) <= (tol))
+    double tol1 = tol * std::abs(x) + 1e-10;
+    if (std::abs(x - xm) <= (2 * tol1 - xm))
       return x;
-
-    double r = (x - w) * (fx - fv);
-    double q = (x - v) * (fx - fw);
-    double p = (x - v) * q - (x - w) * r;
-    q = 2.0 * (q - r);
-    if (q > 0.0)
-      p = -p;
-    q = std::abs(q);
-    double e2 = e;
-    e = d;
-    if (std::abs(p) >= std::abs(0.5 * q * e2) || p <= q * (a - x) || p >= q * (b - x))
+    if (std::abs(e) > tol1)
+    {
+      double r = (x - w) * (fx - fv);
+      double q = (x - v) * (fx - fw);
+      double p = (x - v) * q - (x - w) * r;
+      q = 2.0 * (q - r);
+      if (q > 0.0)
+        p = -p;
+      q = std::abs(q);
+      double e2 = e;
+      e = d;
+      if (std::abs(p) >= std::abs(0.5 * q * e2) || p <= q * (a - x) || p >= q * (b - x))
+      {
+        e = (x > xm) ? (a - x) : (b - x);
+        d = cgold * e;
+      }
+      else
+      {
+        d = p / q;
+        u = x + d;
+        if ((u - a) < (2 * tol1) || (b - u) < (2 * tol1))
+          d = (xm <= x) ? -tol1 : tol1;
+      }
+    }
+    else
     {
       e = (x > xm) ? (a - x) : (b - x);
       d = cgold * e;
     }
-    else
-    {
-      d = p / q;
-      u = x + d;
-      if ((u - a) < (2 * tol) || (b - u) < (2 * tol))
-	d = (xm <= x) ? -tol : tol;
-    }
-
-    u = (std::abs(d) >= tol) ? (x + d) : x + (d > 0 ? tol : -tol);
+    u = (std::abs(d) >= tol1) ? (x + d) : x + (d > 0 ? tol1 : -tol1);
     fu = chiSq(center + u * dir, rmIters);
 
     if (fu <= fx)
