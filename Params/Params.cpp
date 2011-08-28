@@ -54,10 +54,17 @@ void Params::parseInput(char const *filename)
       continue;
     }
 
-    if (sline.find("nEigs = ") != sline.npos)
+    if (sline.find("nEig_min = ") != sline.npos)
     {
       size_t idx = sline.find("=");
-      nEigs = XLat(sline.c_str() + idx + 1);
+      nEig_min = XLat(sline.c_str() + idx + 1);
+      continue;
+    }
+
+    if (sline.find("nEig_max = ") != sline.npos)
+    {
+      size_t idx = sline.find("=");
+      nEig_max = XLat(sline.c_str() + idx + 1);
       continue;
     }
 
@@ -135,10 +142,17 @@ void FitParams::parseInput(char const *filename)
       continue;
     }
 
-    if (sline.find("nEigs = ") != sline.npos)
+    if (sline.find("nEig_min = ") != sline.npos)
     {
       size_t idx = sline.find("=");
-      nEigs = XLat(sline.c_str() + idx + 1);
+      nEig_min = XLat(sline.c_str() + idx + 1);
+      continue;
+    }
+
+    if (sline.find("nEig_max = ") != sline.npos)
+    {
+      size_t idx = sline.find("=");
+      nEig_max = XLat(sline.c_str() + idx + 1);
       continue;
     }
 

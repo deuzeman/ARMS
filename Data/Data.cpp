@@ -71,6 +71,7 @@ Eigen::ArrayXXd const &Data::ratios(size_t const nBoot) const
     d_summary.row(0) = ratios.colwise().mean();
 
     bootstrap(nBoot, ratios);
+    d_summary.row(1) /= d_summary.row(1).mean();
 
     d_cur = RAT;
   }

@@ -36,4 +36,17 @@ class Data
     Eigen::ArrayXXd const &average(size_t const nBoot) const;
     Eigen::ArrayXXd const &ratios(size_t const nBoot) const;
     Eigen::ArrayXXd const &cumulant() const;
+
+    int minEv() const;
+    int maxEv() const;
 };
+
+inline int Data::minEv() const
+{
+  return d_minEv;
+}
+
+inline int Data::maxEv() const
+{
+  return d_maxEv;
+}

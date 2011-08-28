@@ -14,7 +14,8 @@ class RanMat
 {
   size_t const d_N;
   size_t const d_nu;
-  size_t const d_nEigs;
+  size_t const d_nEig_min;
+  size_t const d_nEig_max;
   size_t const d_nDet;
   size_t const d_seed;
 
@@ -30,21 +31,21 @@ class RanMat
   ADD d_result;
 
   Eigen::ArrayXd d_det;
-  Eigen::ArrayXd d_ratios;
-  Eigen::ArrayXd d_average;
+  Eigen::Array< double, 1, Eigen::Dynamic > d_ratios;
+  Eigen::Array< double, 1, Eigen::Dynamic > d_average;
 
   Eigen::SelfAdjointEigenSolver< MCD > d_slv;
   StochasticLib1 d_rstream;
 
   public:
-    RanMat(size_t const N, size_t const nu, size_t const nEigs, size_t const nDet, size_t const seed);
+    RanMat(size_t const N, size_t const nu, size_t const nEig_min, size_t const nEig_max, size_t const nDet, size_t const seed);
 
     void calculate(Eigen::ArrayXd const &params, size_t const iter, bool const extend = false);
     double const &result(size_t const nSam, size_t const nEig) const;
     double const &det(size_t const nSam) const;
 
-    Eigen::ArrayXd const &average() const;
-    Eigen::ArrayXd const &ratios() const;
+    Eigen::Array< double, 1, Eigen::Dynamic > const &average() const;
+    Eigen::Array< double, 1, Eigen::Dynamic > const &ratios() const;
 };
 
 inline double const &RanMat::result(size_t const nSam, size_t const nEig) const
@@ -57,12 +58,12 @@ inline double const &RanMat::det(size_t const nSam) const
   return d_det.coeffRef(nSam);
 }
 
-inline Eigen::ArrayXd const &RanMat::average() const
+inline Eigen::Array< double, 1, Eigen::Dynamic > const &RanMat::average() const
 {
   return d_average;
 }
 
-inline Eigen::ArrayXd const &RanMat::ratios() const
+inline Eigen::Array< double, 1, Eigen::Dynamic > const &RanMat::ratios() const
 {
   return d_ratios;
 }

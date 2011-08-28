@@ -29,7 +29,8 @@ struct Params
   double a6;
   double a7;
   double a8;
-  int    nEigs;
+  int    nEig_min;
+  int    nEig_max;
   size_t nDet;
   size_t iter;
   std::string output;
@@ -51,13 +52,14 @@ struct FitParams
   double a6;
   double a7;
   double a8;
-  int    nEigs;
+  int    nEig_min;
+  int    nEig_max;
   size_t nDet;
   size_t iter;
 
   std::string dataFile;
   std::string output;
-  
+
   FitParams(char const *filename);
   void parseInput(char const *filename);
 };
