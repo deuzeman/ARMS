@@ -4,6 +4,7 @@ double Minim::chiSq(Eigen::ArrayXd const &pars, size_t const iter, double * cons
 {
   // Potentially pad to add the flexibility for a 2D miminization
   Eigen::ArrayXd padPars = Eigen::ArrayXd::Zero(4);
+   
   if (pars.size() == 2)
   {
     padPars[0] = pars[0];
@@ -14,6 +15,8 @@ double Minim::chiSq(Eigen::ArrayXd const &pars, size_t const iter, double * cons
     padPars = pars;
   }
 
+  std::cerr << "[DEBUG -- CHISQ ] " << padPars.transpose() << std::endl;
+  
   d_generator->calculate(padPars, iter, extend);
   Eigen::ArrayXXd const &dataRats = d_data.ratios(1000);
   double result = ((dataRats.row(0) - d_generator->ratios().row(0)) / dataRats.row(1)).square().sum();
@@ -48,8 +51,9 @@ double Minim::chiSq(Eigen::ArrayXd const &pars, size_t const iter, double * cons
 double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eigen::Array< double, 1, Eigen::Dynamic > const &dir, Eigen::ArrayXXd const &bounds, size_t rmIters, double const tol)
 {
   double const cgold = 0.3819660;
-  size_t const maxIters = 50000;
-
+  size_t const maxIters = 400000;
+  size_t const nBoot = 5000;
+  
   Eigen::ArrayXXd limits(bounds);
 
   limits.row(0) = bounds.row(0) - center;
@@ -82,7 +86,7 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
   double w = 0.0;
   double v = 0.0;
 
-  double fx = chiSq(center, rmIters, &ex);
+  double fx = chiSq(center, rmIters, &ex, nBoot);
   std::cerr << "[DEBUG -- BRENT] Calculated fx +/- std as: " << fx << " +/- " << ex << std::endl;
   switchGen();
 
@@ -127,7 +131,7 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
 
     u = round((std::abs(d) >= tol) ? (x + d) : x + (d > 0 ? tol : -tol), tol);
     std::cerr << "[DEBUG -- BRENT] Calculating at u = " << u << " (x = " << x << ')' << std::endl;
-    fu = chiSq(center + u * dir, rmIters, &eu);
+    fu = chiSq(center + u * dir, rmIters, &eu, nBoot);
     std::cerr << "[DEBUG -- BRENT] Calculated fu +/- std as: " << fu << " +/- " << eu << std::endl;
 
     // Sufficient precision?
@@ -144,11 +148,11 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
         std::cerr << "[DEBUG -- BRENT] a = " << a << ", b = " << b << ", x = " << x << ", u = " << u << "." << std::endl;
 
         switchGen();
-        fx = chiSq(center + x * dir, maxIters - rmIters, &ex, 1000, true);
+        fx = chiSq(center + x * dir, maxIters - rmIters, &ex, nBoot, true);
         std::cerr << "[DEBUG -- BRENT] Calculated fx +/- std as: " << fx << " +/- " << ex << std::endl;
 
         switchGen();
-        fu = chiSq(center + u * dir, maxIters - rmIters, &eu, 1000, true);
+        fu = chiSq(center + u * dir, maxIters - rmIters, &eu, nBoot, true);
         std::cerr << "[DEBUG -- BRENT] Calculated fu +/- std as: " << fu << " +/- " << eu << std::endl;
         std::cerr << "[DEBUG -- BRENT] Difference: " << fu - fx << " equiv " << (fu - fx) / (std::sqrt(eu * eu + ex * ex)) << std::endl;
         if (std::abs(fu - fx) > (3 * std::sqrt(eu * eu + ex * ex))) // Who knows? We may be out of the woods already...
@@ -218,7 +222,7 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
           std::cerr << "[DEBUG -- BRENT] This is compatible with the lack of effect seen so far, so return " << ret << " to stabilize." << std::endl;
         else
         {
-          ret = (xb + ub) / 2.0;
+          ret = round((xb + ub) / 2.0, tol);
           std::cerr << "[DEBUG -- BRENT] We have indications that the result is unequal zero anyway, so return the midpoint " << ret << '.' << std::endl;
         }
 
@@ -227,11 +231,11 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
       }
 
       switchGen();
-      fx = chiSq(center, newIters - rmIters, &ex, 1000, true);
+      fx = chiSq(center, newIters - rmIters, &ex, nBoot, true);
       std::cerr << "[DEBUG -- BRENT] Calculated fx +/- std as: " << fx << " +/- " << ex << std::endl;
 
       switchGen();
-      fu = chiSq(center, newIters - rmIters, &eu, 1000, true);
+      fu = chiSq(center, newIters - rmIters, &eu, nBoot, true);
       std::cerr << "[DEBUG -- BRENT] Calculated fu +/- std as: " << fu << " +/- " << eu << std::endl;
       std::cerr << "[DEBUG -- BRENT] Difference: " << fu - fx << " equiv " << (fu - fx) / (std::sqrt(eu * eu + ex * ex)) << std::endl;
 
@@ -278,7 +282,7 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
   return x;
 }
 
-void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, size_t const rmIters, size_t const powIters, double const tol)
+void Minim::powell(Eigen::ArrayXd &start, Eigen::ArrayXXd &bounds, size_t const rmIters, size_t const powIters, double const tol)
 {
   size_t const n = start.size();
 
@@ -287,6 +291,10 @@ void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, 
   // Store succesive steps in P
   Eigen::MatrixXd pars = Eigen::MatrixXd::Zero(n, n + 1);
 
+  round(start, tol);
+  round(bounds, tol);
+  round(dirs, tol);
+  
   pars.col(0) = start;
 
   for (size_t iter = 0; iter < powIters; ++iter)
@@ -296,6 +304,7 @@ void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, 
       std::cerr << "[DEBUG -- POWELL] Before minimization:   " << pars.col(idx).transpose() << std::endl;
       std::cerr << "[DEBUG -- POWELL] Calling on direction:  " << dirs.col(idx).transpose() << std::endl;
       pars.col(idx + 1) = pars.col(idx) + brent(pars.col(idx), dirs.col(idx), bounds, rmIters, tol) * dirs.col(idx);
+      round(pars, tol);
       std::cerr << "[DEBUG -- POWELL] After minimization:    " << pars.col(idx + 1).transpose()  << std::endl;
     }
 
@@ -303,11 +312,19 @@ void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, 
       dirs.col(idx).swap(dirs.col(idx + 1));
 
     dirs.col(n - 1) = pars.col(n) - pars.col(0);
-    dirs.col(n - 1).normalize(); // We work on absolute precision, so this matters for the minimization!
-    std::cerr << "[DEBUG -- POWELL] Before minimization:         " << pars.col(n).transpose() << std::endl;
-    std::cerr << "[DEBUG -- POWELL] Calling on extra direction:  " << dirs.col(n - 1).transpose() << std::endl;
-    Eigen::MatrixXd newP0 = pars.col(n) + brent(pars.col(n), dirs.col(n - 1), bounds, rmIters, tol) * dirs.col(n - 1);
-    std::cerr << "[DEBUG -- POWELL] After minimization:          " << newP0.transpose() << std::endl;
+    
+    Eigen::MatrixXd newP0(pars.col(n));
+    if (dirs.col(n - 1).squaredNorm() > tol)
+    {  
+      dirs.col(n - 1).normalize(); // We work on absolute precision, so this matters for the minimization!
+      round(dirs, tol);
+      
+      std::cerr << "[DEBUG -- POWELL] Before minimization:         " << pars.col(n).transpose() << std::endl;
+      std::cerr << "[DEBUG -- POWELL] Calling on extra direction:  " << dirs.col(n - 1).transpose() << std::endl;
+      newP0 += brent(pars.col(n), dirs.col(n - 1), bounds, rmIters, tol) * dirs.col(n - 1);
+      round(newP0, tol);
+      std::cerr << "[DEBUG -- POWELL] After minimization:          " << newP0.transpose() << std::endl;
+    }
 
     if (((newP0 - pars.col(0)).squaredNorm()) < tol)
     {
@@ -322,6 +339,7 @@ void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, 
     std::cerr << "[DEBUG -- POWELL] Before reorthogonalization:\n" << dirs << std::endl;
     Eigen::JacobiSVD< Eigen::MatrixXd > svd(dirs, Eigen::ComputeFullU);
     dirs = svd.matrixU();
+    round(dirs, tol);
     std::cerr << "[DEBUG -- POWELL] After reorthogonalization:\n" << dirs << std::endl;
   }
   std::cerr << "[POWELL] Warning: Iteration count exceeded!" << std::endl;
@@ -332,6 +350,7 @@ double Minim::phi(double const start, double const edge, size_t const iter, Eige
                   double const value, double const error, double const tol, double * const bval, double * const berr)
 {
   double const cgold = 0.3819660;
+  size_t const nBoot = 5000;
 
   std::cerr << "[DEBUG -- PHI] Entering bracketing routine to determine extent of plateau, between " << start << " and " << edge << '.' << std::endl;
 
@@ -341,7 +360,7 @@ double Minim::phi(double const start, double const edge, size_t const iter, Eige
 
   Eigen::ArrayXd pars = center + attempt * dir;
 
-  *bval = chiSq(pars, iter, berr, 1000, false);
+  *bval = chiSq(pars, iter, berr, nBoot, false);
 
   if (std::abs(edge - attempt) < tol)
   {
