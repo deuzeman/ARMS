@@ -13,8 +13,7 @@ double Minim::chiSq(Eigen::ArrayXd const &pars, size_t const iter, double * cons
   {
     padPars = pars;
   }
-  
-    
+
   d_generator->calculate(padPars, iter, extend);
   Eigen::ArrayXXd const &dataRats = d_data.ratios(1000);
   double result = ((dataRats.row(0) - d_generator->ratios().row(0)) / dataRats.row(1)).square().sum();
@@ -49,11 +48,16 @@ double Minim::chiSq(Eigen::ArrayXd const &pars, size_t const iter, double * cons
 double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eigen::Array< double, 1, Eigen::Dynamic > const &dir, Eigen::ArrayXXd const &bounds, size_t rmIters, double const tol)
 {
   double const cgold = 0.3819660;
+  size_t const maxIters = 50000;
 
   Eigen::ArrayXXd limits(bounds);
 
   limits.row(0) = bounds.row(0) - center;
   limits.row(1) = bounds.row(1) - center; // Can be better, perhaps -- replicate somehow.
+
+  std::cerr << "[DEBUG -- BRENT] Called Brent routine on:" << std::endl;
+  std::cerr << "[DEBUG -- BRENT] " << center << std::endl;
+  std::cerr << "[DEBUG -- BRENT] " << dir << std::endl;
 
   double a = 0.0;
   double b = 0.0;
@@ -81,7 +85,7 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
   double fx = chiSq(center, rmIters, &ex);
   std::cerr << "[DEBUG -- BRENT] Calculated fx +/- std as: " << fx << " +/- " << ex << std::endl;
   switchGen();
-  
+
   double fu = fx;
   double fv = fx;
   double fw = fx;
@@ -127,31 +131,113 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
     std::cerr << "[DEBUG -- BRENT] Calculated fu +/- std as: " << fu << " +/- " << eu << std::endl;
 
     // Sufficient precision?
-    std::cerr << "[DEBUG -- BRENT] Difference: " << fu - fx << " equiv " << (fu - fx) / (3 * std::sqrt(eu * eu + ex * ex)) << std::endl;
+    std::cerr << "[DEBUG -- BRENT] Difference: " << fu - fx << " equiv " << (fu - fx) / (std::sqrt(eu * eu + ex * ex)) << std::endl;
     while (std::abs(fu - fx) < (3 * std::sqrt(eu * eu + ex * ex)))
     {
-      std::cerr << "[DEBUG -- BRENT] Not sufficient separation, additional precision needed." << std::endl;
+      std::cerr << "[DEBUG -- BRENT] Insufficient separation, additional precision needed." << std::endl;
       double fac = 1.33 * (3 * std::sqrt(eu * eu + ex * ex)) / std::abs(fu - fx);
       size_t newIters = static_cast< size_t >(fac * fac * static_cast< double >(rmIters));
       std::cerr << "[DEBUG -- BRENT] New value for rmIters: " << newIters << std::endl;
-      if (newIters > 100000) // NOTE Hard-coded limit here...
+      if (newIters > maxIters)
       {
-	std::cerr << "[DEBUG -- BRENT] Too many iterations! Reduce precision requirements..." << std::endl;
-	exit(-1);
+        std::cerr << "[DEBUG -- BRENT] This value is too high, changing to finding phi bounds." << std::endl;
+        std::cerr << "[DEBUG -- BRENT] a = " << a << ", b = " << b << ", x = " << x << ", u = " << u << "." << std::endl;
+
+        switchGen();
+        fx = chiSq(center + x * dir, maxIters - rmIters, &ex, 1000, true);
+        std::cerr << "[DEBUG -- BRENT] Calculated fx +/- std as: " << fx << " +/- " << ex << std::endl;
+
+        switchGen();
+        fu = chiSq(center + u * dir, maxIters - rmIters, &eu, 1000, true);
+        std::cerr << "[DEBUG -- BRENT] Calculated fu +/- std as: " << fu << " +/- " << eu << std::endl;
+        std::cerr << "[DEBUG -- BRENT] Difference: " << fu - fx << " equiv " << (fu - fx) / (std::sqrt(eu * eu + ex * ex)) << std::endl;
+        if (std::abs(fu - fx) > (3 * std::sqrt(eu * eu + ex * ex))) // Who knows? We may be out of the woods already...
+          break;
+
+        // First check that we're not accidentally on two sides of a proper minimum!
+        double fb = 0.0;
+        double eb = 0.0;
+        double xb = 0.0;
+
+        if (std::abs(x - u) > 1.5 * tol)
+        {
+          std::cerr << "[DEBUG -- BRENT] Checking for an internal minimum..." << std::endl;
+          xb = phi(x, u, maxIters, center, dir, fx, ex, tol, &fb, &eb);
+          if ((fb < fx) && (std::abs(fb - fx) > (3 * std::sqrt(eb * eb + ex * ex)))) // Best case scenario!
+          {
+            std::cerr << "[DEBUG -- BRENT] Phi bracketing produced a new minimum at " << xb << std::endl;
+            // We'll pretend this was the current value of u and continue as if nothing happened.
+            fu = fb;
+            eu = eb;
+            u  = xb;
+            break;
+          }
+        }
+        else
+          std::cerr << "[DEBUG -- BRENT] No room for an internal minimum." << std::endl;
+
+        std::cerr << "[DEBUG -- BRENT] Checking from x to the bound." << std::endl;
+        double edge = (u > x) ? a : b; // Start in the opposite direction, because we haven't scanned that yet...
+
+        xb = phi(x, edge, maxIters, center, dir, fx, ex, tol, &fb, &eb);
+
+        if ((fb < fx) && (std::abs(fb - fx) > (3 * std::sqrt(eb * eb + ex * ex)))) // Best case scenario!
+        {
+          std::cerr << "[DEBUG -- BRENT] Phi bracketing produced a new minimum at " << xb << std::endl;
+          // We'll pretend this was the current value of u and continue as if nothing happened.
+          fu = fb;
+          eu = eb;
+          u  = xb;
+          break;
+        }
+
+        // If we're here, we've either reached the edge (and this is now xb) or we've found some non-trivial bound.
+        // Either way, we know x isn't well determined up to xb...
+
+        std::cerr << "[DEBUG -- BRENT] Checking from u to the other bound." << std::endl;
+        edge = (u > x) ? b : a; // Do the other side now, starting at u since we already know it's no different from x.
+        double ub = phi(u, edge, maxIters, center, dir, fx, ex, tol, &fb, &eb);
+
+        if ((fb < fx) && (std::abs(fb - fx) > (3 * std::sqrt(eb * eb + ex * ex)))) // Best case scenario again!
+        {
+          std::cerr << "[DEBUG -- BRENT] Phi bracketing produced a new minimum at " << xb << std::endl;
+          // We'll pretend this was the current value of u and continue as if nothing happened.
+          fu = fb;
+          eu = eb;
+          u  = ub;
+          break;
+        }
+
+        // That pretty much ends our routine without a true minimum, so we'll return an appropriate value here.
+        // Since it seems our starting point was as good as a minimum, let's just return it. This should minimize oscillations
+        // in a multidimensional parameter space where all values are rougly equivalent.
+        std::cerr << "[DEBUG -- BRENT] Found an acceptable region between " << xb << " and " << ub << std::endl;
+        double ret = 0.0;
+
+        if ((x < tol) && (x > -tol))
+          std::cerr << "[DEBUG -- BRENT] This is compatible with the lack of effect seen so far, so return " << ret << " to stabilize." << std::endl;
+        else
+        {
+          ret = (xb + ub) / 2.0;
+          std::cerr << "[DEBUG -- BRENT] We have indications that the result is unequal zero anyway, so return the midpoint " << ret << '.' << std::endl;
+        }
+
+        return ret;
+
       }
-      
+
       switchGen();
       fx = chiSq(center, newIters - rmIters, &ex, 1000, true);
       std::cerr << "[DEBUG -- BRENT] Calculated fx +/- std as: " << fx << " +/- " << ex << std::endl;
-      
+
       switchGen();
       fu = chiSq(center, newIters - rmIters, &eu, 1000, true);
       std::cerr << "[DEBUG -- BRENT] Calculated fu +/- std as: " << fu << " +/- " << eu << std::endl;
-      std::cerr << "[DEBUG -- BRENT] Difference: " << fu - fx << " equiv " << (fu - fx) / (3 * std::sqrt(eu * eu + ex * ex)) << std::endl;
+      std::cerr << "[DEBUG -- BRENT] Difference: " << fu - fx << " equiv " << (fu - fx) / (std::sqrt(eu * eu + ex * ex)) << std::endl;
 
       rmIters = newIters;
     }
-    
+
     if (fu <= fx)
     {
       std::cerr << "[DEBUG -- BRENT] Found a new minimum!" << std::endl;
@@ -194,7 +280,6 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
 
 void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, size_t const rmIters, size_t const powIters, double const tol)
 {
-  double const tiny = 1.0E-25;
   size_t const n = start.size();
 
   // Start with the parameters as principal directions
@@ -208,26 +293,79 @@ void Minim::powell(Eigen::VectorXd const &start, Eigen::ArrayXXd const &bounds, 
   {
     for (size_t idx = 0; idx < n; ++idx)
     {
+      std::cerr << "[DEBUG -- POWELL] Before minimization:   " << pars.col(idx).transpose() << std::endl;
       std::cerr << "[DEBUG -- POWELL] Calling on direction:  " << dirs.col(idx).transpose() << std::endl;
       pars.col(idx + 1) = pars.col(idx) + brent(pars.col(idx), dirs.col(idx), bounds, rmIters, tol) * dirs.col(idx);
+      std::cerr << "[DEBUG -- POWELL] After minimization:    " << pars.col(idx + 1).transpose()  << std::endl;
     }
 
     for (size_t idx = 0; idx < n - 2; ++idx)
       dirs.col(idx).swap(dirs.col(idx + 1));
 
     dirs.col(n - 1) = pars.col(n) - pars.col(0);
+    dirs.col(n - 1).normalize(); // We work on absolute precision, so this matters for the minimization!
+    std::cerr << "[DEBUG -- POWELL] Before minimization:         " << pars.col(n).transpose() << std::endl;
+    std::cerr << "[DEBUG -- POWELL] Calling on extra direction:  " << dirs.col(n - 1).transpose() << std::endl;
     Eigen::MatrixXd newP0 = pars.col(n) + brent(pars.col(n), dirs.col(n - 1), bounds, rmIters, tol) * dirs.col(n - 1);
+    std::cerr << "[DEBUG -- POWELL] After minimization:          " << newP0.transpose() << std::endl;
 
     if (((newP0 - pars.col(0)).squaredNorm()) < tol)
     {
       d_res = newP0;
+      std::cerr << "[DEBUG -- POWELL] Minimization complete!" << std::endl; 
       return;
     }
 
-    // Reorthogonalize to avoid linear dependency build-up, pace Brent & NR.
-    Eigen::JacobiSVD< Eigen::MatrixXd > svd(dirs, Eigen::ComputeFullU);
+    pars.col(0) = newP0; // Otherwise we just start from 0 again... :(
 
+    // Reorthogonalize to avoid linear dependency build-up, pace Brent & NR.
+    std::cerr << "[DEBUG -- POWELL] Before reorthogonalization:\n" << dirs << std::endl;
+    Eigen::JacobiSVD< Eigen::MatrixXd > svd(dirs, Eigen::ComputeFullU);
     dirs = svd.matrixU();
+    std::cerr << "[DEBUG -- POWELL] After reorthogonalization:\n" << dirs << std::endl;
   }
   std::cerr << "[POWELL] Warning: Iteration count exceeded!" << std::endl;
+}
+
+
+double Minim::phi(double const start, double const edge, size_t const iter, Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eigen::Array< double, 1, Eigen::Dynamic > const &dir,
+                  double const value, double const error, double const tol, double * const bval, double * const berr)
+{
+  double const cgold = 0.3819660;
+
+  std::cerr << "[DEBUG -- PHI] Entering bracketing routine to determine extent of plateau, between " << start << " and " << edge << '.' << std::endl;
+
+  double attempt = round(start + 0.3819660 * (edge - start), tol);
+  if (attempt < start + tol && attempt > start - tol) // i.e. equal to the starting point...
+    attempt += (edge - start > 0) ? tol : -tol; // Now it's different at least
+
+  Eigen::ArrayXd pars = center + attempt * dir;
+
+  *bval = chiSq(pars, iter, berr, 1000, false);
+
+  if (std::abs(edge - attempt) < tol)
+  {
+    std::cerr << "[DEBUG -- PHI] Terminate on far edge condition." << std::endl;
+    return attempt; // End of iterations anyway, because we've reached the edge...
+  }
+
+  if (std::abs(*bval - value) < (3 * std::sqrt(error * error + *berr * *berr))) // Still not there yet...
+    return phi(attempt, edge, iter, center, dir, value, error, tol, bval, berr);
+
+  if (*bval < value) // This is actually a new minimum!
+  {
+    std::cerr << "[DEBUG -- PHI] Terminate on new minimum." << std::endl;
+    return attempt; // We're out of the slump, return to Brent.
+  }
+
+  // The only remaining (and most likely) case: we've found an increase in chi squared.
+
+  if (std::abs(start - attempt) < tol) // No room for further improvement...
+  {
+    std::cerr << "[DEBUG -- PHI] Terminate on near edge condition." << std::endl;
+    return attempt; // End of iterations anyway, because we've reached the edge...
+  }
+
+  // Room left, so go for it!
+  return phi(start, attempt, iter, center, dir, value, error, tol, bval, berr);
 }

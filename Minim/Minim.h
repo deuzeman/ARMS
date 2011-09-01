@@ -22,7 +22,9 @@ class Minim
 
   void switchGen();
   double round(double const value, double const tol);
-  
+  double phi(double const start, double const edge, size_t const iter, Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eigen::Array< double, 1, Eigen::Dynamic > const &dir,
+             double const value, double const error, double const tol, double * const bval, double * const berr);
+
   public:
     Minim(Data const &data, size_t const N, size_t const nu, int const nEig_min, int const nEig_max, size_t const seed);
     ~Minim();
