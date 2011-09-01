@@ -37,7 +37,7 @@ int main(int argc, char **argv)
   }
 
   Params par(argv[1]);
-  RanMat generator(par.N, par.nu, par.nEig_min, par.nEig_max, par.nDet, time(0));
+  RanMat generator(par.N, par.nu, par.nEig_min, par.nEig_max, par.nDet, time(0), true);
 
   std::ofstream rstream(par.output.c_str(), std::ofstream::trunc);
   rstream << "# ARMS v2.2 output file\n"
@@ -90,6 +90,11 @@ int main(int argc, char **argv)
     rstream << std::endl;
   }
   rstream.close();
+
+  std::cerr << "Done" << std::endl;
+  Eigen::ArrayXXd res = generator.ratios();
+  for (size_t idx = 0; idx < res.cols(); ++idx)
+    std::cerr << res(0, idx) << " +/- " << res(1, idx) << std::endl;
 
   return 0;
 }

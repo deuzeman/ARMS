@@ -38,6 +38,7 @@ void Data::bootstrap(size_t const nBoot, Eigen::ArrayXXd const &data) const
   // Calculate the standard deviation from this.
   d_summary.row(1) = bootHist.square().colwise().mean();
   d_summary.row(1) -= bootHist.colwise().mean().square();
+  d_summary.row(1) = std::sqrt(d_summary.row(1));
 }
 
 Eigen::ArrayXXd const &Data::average(size_t const nBoot) const
@@ -71,7 +72,6 @@ Eigen::ArrayXXd const &Data::ratios(size_t const nBoot) const
     d_summary.row(0) = ratios.colwise().mean();
 
     bootstrap(nBoot, ratios);
-    d_summary.row(1) /= d_summary.row(1).mean();
 
     d_cur = RAT;
   }

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <iostream>
 
-RanMat::RanMat(size_t const N, size_t const nu, size_t const nEig_min, size_t const nEig_max, size_t const nDet, size_t const seed)
+RanMat::RanMat(size_t const N, size_t const nu, size_t const nEig_min, size_t const nEig_max, size_t const nDet, size_t const seed, bool const bootstrap)
   : d_N(N),
     d_nu(nu),
     d_nEig_min(nEig_min),
@@ -18,7 +18,8 @@ RanMat::RanMat(size_t const N, size_t const nu, size_t const nEig_min, size_t co
     d_W(d_N + d_nu, d_N),
     d_slv(2 * d_N + d_nu),
     d_result(2 * d_N + d_nu, d_nEig_max - d_nEig_min),
-    d_rstream(d_seed)
+    d_rstream(d_seed),
+    d_bootstrap(bootstrap)
 {}
 
 void RanMat::calculate(Eigen::ArrayXd const &params, size_t const iter, bool const extend)
@@ -84,12 +85,64 @@ void RanMat::calculate(Eigen::ArrayXd const &params, size_t const iter, bool con
     d_det[ctr] = (d_nDet > 0) ? d_slv.eigenvalues().segment(d_N -(d_nDet / 2), d_nDet).prod() : 0;
   }
 
-  d_average = d_result.colwise().mean();
-  d_ratios.resize(d_result.cols() * (d_result.cols() - 1) / 2);
-  size_t ctr = 0;
+  d_average.resize(2, d_result.cols());
+  d_ratios.resize(2, d_result.cols() * (d_result.cols() - 1) / 2);
 
-  for (size_t num = 0; num < d_result.cols() - 1; ++num)
-    for (size_t den = num + 1; den < d_result.cols(); ++den)
-      d_ratios[ctr++] = (d_result.col(num) / d_result.col(den)).mean();
+  bootAver(1000);
+  bootRat(1000);
 }
 
+void RanMat::bootAver(size_t const nBoot) const
+{
+  d_average.row(0) = d_result.colwise().mean();
+
+  if (d_bootstrap)
+  {
+    Eigen::ArrayXXd bootSamp(d_result.rows(), d_result.cols());
+    Eigen::ArrayXXd bootHist(nBoot, d_result.cols());
+    CRandomSFMT sampler(time(0));
+
+    for (size_t bootCtr = 0; bootCtr < nBoot; ++bootCtr)
+    {
+      for (size_t sampCtr = 0; sampCtr < d_result.rows(); ++sampCtr)
+        bootSamp.row(sampCtr) = d_result.row(sampler.IRandomX(0, d_result.rows() - 1));
+      bootHist.row(bootCtr) = (bootSamp.colwise().mean());
+    }
+
+    // Calculate the standard deviation from this.
+    d_average.row(1) = bootHist.square().colwise().mean();
+    d_average.row(1) -= bootHist.colwise().mean().square();
+    d_average.row(1) = std::sqrt(d_average.row(1));
+  }
+}
+
+void RanMat::bootRat(size_t const nBoot) const
+{
+  Eigen::ArrayXXd ratFull(d_result.rows(), d_result.cols() * (d_result.cols() - 1) / 2);
+
+  size_t ctr = 0;
+  for (size_t num = 0; num < d_result.cols() - 1; ++num)
+    for (size_t den = num + 1; den < d_result.cols(); ++den)
+      ratFull.col(ctr++) = (d_result.col(num) / d_result.col(den));
+
+  d_ratios.row(0) = ratFull.colwise().mean();
+
+  if (d_bootstrap)
+  {
+    Eigen::ArrayXXd bootSamp(ratFull.rows(), ratFull.cols());
+    Eigen::ArrayXXd bootHist(nBoot, ratFull.cols());
+    CRandomSFMT sampler(time(0));
+
+    for (size_t bootCtr = 0; bootCtr < nBoot; ++bootCtr)
+    {
+      for (size_t sampCtr = 0; sampCtr < ratFull.rows(); ++sampCtr)
+	bootSamp.row(sampCtr) = ratFull.row(sampler.IRandomX(0, ratFull.rows() - 1));
+      bootHist.row(bootCtr) = (bootSamp.colwise().mean());
+    }
+
+    // Calculate the standard deviation from this.
+    d_ratios.row(1) = bootHist.square().colwise().mean();
+    d_ratios.row(1) -= bootHist.colwise().mean().square();
+    d_ratios.row(1) = std::sqrt(d_ratios.row(1));
+  }
+}
