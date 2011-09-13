@@ -27,8 +27,10 @@ void RanMat::calculate(Eigen::ArrayXd const &params, size_t const iter, bool con
   size_t offset = 0;
   double const &m  = params.coeffRef(0);
   double const &a6 = params.coeffRef(1);
+  double const a6_b_m = a6 / m;
   double const &a7 = params.coeffRef(2);
   double const &a8 = params.coeffRef(3);
+  double const &scale = params.coeffRef(4);
 
   if (extend)
   {
@@ -78,11 +80,14 @@ void RanMat::calculate(Eigen::ArrayXd const &params, size_t const iter, bool con
     d_Z << a8 * d_A, d_W, d_W.adjoint(), a8 * d_B;
 
     // The following part now adds the d_W6 and d_W7 terms, as well as the mass term
-    for (int x = 0; x < (2 * d_N + d_nu); ++x)
-      d_Z(x,x) += (d_rstream.Normal(1.0, d_scale * a6)) * d_M(x, x) + d_rstream.Normal(0.0, d_scale * a7);
+    double mfac = d_rstream.Normal(1.0, d_scale * a6_b_m);
+    double ifac = d_rstream.Normal(0.0, d_scale * a7);
+/*    for (int x = 0; x < (2 * d_N + d_nu); ++x)
+      d_Z(x,x) += (d_rstream.Normal(1.0, d_scale * a6_b_m)) * d_M(x, x) + d_rstream.Normal(0.0, d_scale * a7);*/
+    d_Z += mfac * d_M + ifac * MCD::Identity(2 * d_N + d_nu, 2 * d_N + d_nu);
     d_slv.compute(d_Z, Eigen::EigenvaluesOnly);
-    d_result.row(ctr) = d_slv.eigenvalues().segment(d_N + d_nEig_min, d_nEig_max - d_nEig_min);
-    d_det[ctr] = (d_nDet > 0) ? d_slv.eigenvalues().segment(d_N -(d_nDet / 2), d_nDet).prod() : 0;
+    d_result.row(ctr) = scale * d_slv.eigenvalues().segment(d_N + d_nEig_min, d_nEig_max - d_nEig_min);
+    d_det[ctr] = (d_nDet > 0) ? (scale * d_slv.eigenvalues().segment(d_N -(d_nDet / 2), d_nDet)).prod() : 0;
   }
 
   d_average.resize(2, d_result.cols());

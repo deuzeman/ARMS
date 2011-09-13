@@ -1,5 +1,5 @@
 #include <algorithm>
-
+#include <iostream>
 #include <Data.h>
 
 Data::Data(char const *filename)

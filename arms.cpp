@@ -15,9 +15,9 @@
 
 int main(int argc, char **argv)
 {
-  if (argc == 1)
+  if (argc != 2)
   {
-    std::cerr << "# ARMS v2.2\n"
+    std::cerr << "# ARMS v2.3\n"
               << "Need an input file!\n" 
               << "This file should contain the following lines:\n\n"
               << "N = ...\n"
@@ -26,12 +26,13 @@ int main(int argc, char **argv)
               << "a6 = ...\n"
               << "a7 = ...\n"
               << "a8 = ...\n"
+              << "scale = ...\n"
               << "nEig_min = ...\n"
               << "nEig_max = ...\n"
               << "nDet = ...\n"
               << "iter = ...\n"
               << "output = ...\n\n"
-              << "The name of this input file should be the first argument.\n"
+              << "The name of this input file should be the only argument.\n"
               << "Now exiting." << std::endl;
     return 1;
   }
@@ -40,7 +41,7 @@ int main(int argc, char **argv)
   RanMat generator(par.N, par.nu, par.nEig_min, par.nEig_max, par.nDet, time(0), true);
 
   std::ofstream rstream(par.output.c_str(), std::ofstream::trunc);
-  rstream << "# ARMS v2.2 output file\n"
+  rstream << "# ARMS v2.3 output file\n"
           << "# Scaling massless operator with inverse sqrt(N)\n"
           << "# Extended version, with three Wilson operators in the action.\n"
           << "# Run with the following parameters\n"
@@ -50,6 +51,7 @@ int main(int argc, char **argv)
           << "# a6:       " << par.a6       << '\n'
           << "# a7:       " << par.a7       << '\n'
           << "# a8:       " << par.a8       << '\n'
+          << "# scale:    " << par.scale    << '\n'
           << "# nEig_min: " << par.nEig_min << '\n'
           << "# nEig_max: " << par.nEig_max << '\n'
           << "# nDet:     " << par.nDet     << '\n'
@@ -71,8 +73,8 @@ int main(int argc, char **argv)
     rstream << std::setw(15) << "\"Det\"";
   rstream << std::endl;
 
-  Eigen::ArrayXd rmtPars(4);
-  rmtPars << par.m, par.a6, par.a7, par.a8;
+  Eigen::ArrayXd rmtPars(5);
+  rmtPars << par.m, par.a6, par.a7, par.a8, par.scale;
   generator.calculate(rmtPars, par.iter, false);
 
   for (int k = 0; k < par.iter; ++k)
@@ -91,10 +93,8 @@ int main(int argc, char **argv)
   }
   rstream.close();
 
-  std::cerr << "Done" << std::endl;
-  Eigen::ArrayXXd res = generator.ratios();
-  for (size_t idx = 0; idx < res.cols(); ++idx)
-    std::cerr << res(0, idx) << " +/- " << res(1, idx) << std::endl;
+  std::cerr << "Done. Averages: " << std::endl;
+  std::cerr << generator.average() << std::endl;
 
   return 0;
 }
