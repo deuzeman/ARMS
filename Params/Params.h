@@ -29,7 +29,7 @@ struct Params
   double a6;
   double a7;
   double a8;
-  double scale;
+  double sigma;
   int    nEig_min;
   int    nEig_max;
   size_t nDet;
@@ -52,20 +52,27 @@ struct FitParams
   size_t N;
   size_t nu;
 
-  double m[3];
-  double a6[3];
-  double a7[3];
-  double a8[3];
-  double scale[3];
+  double m[2];
+  double a6[2];
+  double a7[2];
+  double a8[2];
+  double sigma[2];
 
   size_t iter[2];
   double tol;
+  size_t kol;
+  int bootSeed;
 
-  FitParams(char const *filename);
+  FitParams(char const *filename, bool const parallel = false);
   void parseInput(char const *filename);
+  void parseInputParallel(char const *filename);
 };
 
-inline FitParams::FitParams(char const *filename)
+inline FitParams::FitParams(char const *filename, bool const parallel)
+  : kol(0)
 {
-  parseInput(filename);
+  if (parallel)
+    parseInputParallel(filename);
+  else
+   parseInput(filename);
 }

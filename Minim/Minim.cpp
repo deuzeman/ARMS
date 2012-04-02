@@ -1,126 +1,190 @@
 #include <Minim.h>
 
+Minim::Minim(Data const &data, size_t const N, size_t const nu, size_t const kol)
+  : d_kol(kol), d_data(data), d_hash_gen(new Eigen::ArrayXXi()), d_hash_sec(new Eigen::ArrayXXi())
+{
+  MPI_Comm_rank(MPI_COMM_WORLD, &d_mpirank);
+  MPI_Comm_size(MPI_COMM_WORLD, &d_numnodes);
+
+  int blocklens[2] = {2, 5};
+  MPI_Aint indices[2] = {0, 2 * sizeof(int)};
+  MPI_Datatype old_types[2] = {MPI_INT, MPI_DOUBLE};
+  MPI_Type_struct(2, blocklens, indices, old_types, &MPI_CONTROL);
+  MPI_Type_commit(&MPI_CONTROL);
+
+  d_countBuffer = new unsigned long int[d_data.numCols() * d_data.numSamples()];
+  d_countBackup = new unsigned long int[d_data.numCols() * d_data.numSamples()]; // Since we can't reduce in place!
+
+  if (d_mpirank == 0)
+    d_log.open("fit.log", std::ios::app);
+
+  // Set the appropriate seeds
+  srand(time(0));
+  int seeds[3] = {rand(), rand(), rand()};
+  MPI_Bcast(&seeds, 3, MPI_INT, 0, MPI_COMM_WORLD);
+
+  seeds[0] += d_mpirank;
+  d_generator = new RanMat(N, nu, data.minEv(), data.maxEv(), 0, seeds[0]);
+
+  seeds[1] += d_mpirank;
+  d_secondary = new RanMat(N, nu, data.minEv(), data.maxEv(), 0, seeds[1]);
+
+  d_sampler = new CRandomSFMT(seeds[2]); // We *want* identical sequences here
+}
+
+Minim::~Minim()
+{
+  d_log.close();
+
+  MPI_Type_free(&MPI_CONTROL);
+
+  delete d_generator;
+  delete d_secondary;
+  delete d_sampler;
+
+  delete[] d_countBuffer;
+  delete[] d_countBackup;
+}
+
 double Minim::chiSq(Eigen::ArrayXd const &pars, size_t const iter, double * const error, size_t const nBoot, bool const extend)
 {
-  if (d_cumulant)
-    return chiSqCum(pars, iter, error, nBoot, extend);
-  else
-    return chiSqRat(pars, iter, error, nBoot, extend);
-}
+  d_log << "[CHISQ] " << pars.transpose() << std::endl;
+  size_t ceilIters = iter + static_cast< size_t >(d_numnodes) - 1; 
 
-double Minim::chiSqRat(Eigen::ArrayXd const &pars, size_t const iter, double * const error, size_t const nBoot, bool const extend)
-{
-  // Potentially pad to add the flexibility for a 2D miminization.
-  d_log << "[CHISQRAT] " << pars.transpose() << std::endl;
+  // Prepare the minions to support us here
+  d_control.order[0] = extend ? 3 : 2;
+  d_control.order[1] = static_cast< int >(ceilIters) / d_numnodes;
+  d_control.params[0] = pars[0]; d_control.params[1] = pars[1]; d_control.params[2] = pars[2]; d_control.params[3] = pars[3]; d_control.params[4] = pars[4];
+  MPI_Bcast(&d_control, 1, MPI_CONTROL, 0, MPI_COMM_WORLD);
 
-  d_generator->calculate(pars, iter, extend);
-  Eigen::ArrayXXd const &dataRats = d_data.ratios(1000);
-  double result = ((dataRats.row(0) - d_generator->ratios().row(0)) / dataRats.row(1)).square().sum();
+  // The minions have scurried away to calculate their part. Let's take care of ours now.
+  d_generator->calculate(pars, d_control.order[1], extend);
+  buildHash(extend);
+  clearCountBuffer();
+  for (size_t idx = 0; idx < d_control.order[1]; ++idx)
+    addSampleToCount(idx);
+  condense();
 
-  if (error != 0) // Request for error calculation implied
-  {
-    Eigen::ArrayXXd const &samples = d_generator->samples();
-    Eigen::ArrayXXd ratFull(samples.rows(), samples.cols() * (samples.cols() - 1) / 2);
-
-    size_t ctr = 0;
-    for (size_t num = 0; num < samples.cols() - 1; ++num)
-      for (size_t den = num + 1; den < samples.cols(); ++den)
-        ratFull.col(ctr++) = (samples.col(num) / samples.col(den));
-
-    Eigen::ArrayXXd bootSamp(ratFull.rows(), ratFull.cols());
-    Eigen::ArrayXd bootHist(nBoot);
-    CRandomSFMT sampler(time(0));
-
-    for (size_t bootCtr = 0; bootCtr < nBoot; ++bootCtr)
-    {
-      for (size_t sampCtr = 0; sampCtr < ratFull.rows(); ++sampCtr)
-        bootSamp.row(sampCtr) = ratFull.row(sampler.IRandomX(0, ratFull.rows() - 1));
-      bootHist[bootCtr] = ((dataRats.row(0) - (bootSamp.colwise().mean())) / dataRats.row(1)).square().sum();
-    }
-    *error = std::sqrt(bootHist.square().mean() - bootHist.mean() * bootHist.mean());
-  }
-
-  return result;
-}
-
-double Minim::chiSqCum(Eigen::ArrayXd const &pars, size_t const iter, double * const error, size_t const nBoot, bool const extend)
-{
-  d_log << "[CHISQCUM]" << pars.transpose() << std::endl;
-
-  d_generator->calculate(pars, iter, extend);
-  Eigen::ArrayXXd const &data = d_data.cumulant();
-  Eigen::ArrayXXd const &samples = d_generator->samples();
-  Eigen::ArrayXXd pred(samples.rows(), samples.cols());
-  Eigen::Array< double, 1, Eigen::Dynamic > tempVec(samples.rows());
-
-  for (size_t idx = 0; idx < pred.cols(); ++idx)
-  {
-    tempVec = samples.col(idx);
-    std::sort(&tempVec[0], &tempVec[pred.rows() - 1] + 1);
-    pred.col(idx) = tempVec;
-  }
-
-  double const normalization = 1.0 / data.cols() * (0.5 - (Eigen::ArrayXd::LinSpaced(data.cols(), 1.0, static_cast< double >(data.rows())) / static_cast< double >(data.rows() * data.rows()))).square().sum();
-
+  // Convert the simulation to a chi squared value now
   double result = 0.0;
 
-  for (size_t col = 0; col < data.cols(); ++col)
+  // Pull the branch point outside for performance reasons 
+  if (d_kol)
   {
-    size_t stepper = 0;
-    for (size_t row = 0; row < data.rows(); ++row)
+    for (size_t col = 0; col < d_data.numCols() ; ++col)
     {
-      while ((data(row, col) > pred(stepper, col)) && (stepper < (pred.rows() - 1)))
-        ++stepper;
-
-      double dfrac = static_cast< double >(row) / static_cast< double >(data.rows());
-      double pfrac = static_cast< double >(stepper) / static_cast< double >(pred.rows());
-      result += (dfrac - pfrac) * (dfrac - pfrac);
+      double pfrac = 0.0;
+      for (size_t row = 0; row < d_data.numSamples(); ++row)
+      {
+        double dfrac = static_cast< double >(row) / static_cast< double >(d_data.numSamples());
+        pfrac += static_cast< double >(d_countBuffer[col * d_data.numSamples() + row]) / static_cast< double >(ceilIters);
+        result = std::max(result, std::abs(dfrac - pfrac));
+      }
     }
-    result *= normalization;
+    // No normalization needed (probably)
+  }
+  else
+  {
+    for (size_t col = 0; col < d_data.numCols() ; ++col)
+    {
+      double pfrac = 0.0;
+      for (size_t row = 0; row < d_data.numSamples(); ++row)
+      {
+        double dfrac = static_cast< double >(row) / static_cast< double >(d_data.numSamples());
+        pfrac += static_cast< double >(d_countBuffer[col * d_data.numSamples() + row]) / static_cast< double >(ceilIters);
+        result += (dfrac - pfrac) * (dfrac - pfrac);
+      }
+    }
+    result *= d_data.normalization();
   }
 
-  if (error != 0)
+  // If an error pointer is provided, we need to bootstrap the result.
+  if (error)
   {
-    Eigen::ArrayXXd bootSamp(samples.rows(), samples.cols());
+    // Let the minions know they need to boostrap the RMT.
+    // Sampling is done through taking the same random numbers from a synchronized state random number generator
+    d_control.order[0] = 4; // BOOTSTRAP
+    d_control.order[1] = nBoot;
+    MPI_Bcast(&d_control, 1, MPI_CONTROL, 0, MPI_COMM_WORLD);
+
+    size_t numSamples = d_hash_gen->rows() * d_numnodes;
     Eigen::ArrayXd bootHist(nBoot);
-    CRandomSFMT sampler(time(0));
 
-    for (size_t bootCtr = 0; bootCtr < nBoot; ++bootCtr)
+    for (size_t boot = 0; boot < nBoot; ++boot)
     {
-      for (size_t sampCtr = 0; sampCtr < samples.rows(); ++sampCtr)
-        bootSamp.row(sampCtr) = samples.row(sampler.IRandomX(0, samples.rows() - 1));
-
-      for (size_t idx = 0; idx < pred.cols(); ++idx)
+      clearCountBuffer();
+      for (size_t ctr = 0; ctr < numSamples; ++ctr)
       {
-        tempVec = bootSamp.col(idx);
-        std::sort(&tempVec[0], &tempVec[bootSamp.rows() - 1] + 1);
-        bootSamp.col(idx) = tempVec;
+        size_t ranSample = static_cast< size_t >(d_sampler->IRandomX(0, numSamples - 1));
+        if ((ranSample / d_hash_gen->rows()) == d_mpirank)
+          addSampleToCount(ranSample % d_hash_gen->rows());
       }
+      condense();
 
-      bootHist[bootCtr] = 0.0;
-      for (size_t col = 0; col < data.cols(); ++col)
+      bootHist[boot] = 0.0;
+      // Pull the branch point outside for performance reasons 
+      if (d_kol)
       {
-        size_t stepper = 0;
-        for (size_t row = 0; row < data.rows(); ++row)
+        for (size_t col = 0; col < d_data.numCols() ; ++col)
         {
-          while ((data(row, col) > bootSamp(stepper, col)) && (stepper < (bootSamp.rows() - 1)))
-            ++stepper;
-
-          double dfrac = static_cast< double >(row) / static_cast< double >(data.rows());
-          double pfrac = static_cast< double >(stepper) / static_cast< double >(bootSamp.rows());
-
-          bootHist[bootCtr] += (dfrac - pfrac) * (dfrac - pfrac);
+          double pfrac = 0.0;
+          for (size_t row = 0; row < d_data.numSamples(); ++row)
+          {
+            double dfrac = static_cast< double >(row) / static_cast< double >(d_data.numSamples());
+            pfrac += static_cast< double >(d_countBuffer[col * d_data.numSamples() + row]) / static_cast< double >(ceilIters);
+            bootHist[boot] = std::max(bootHist[boot], std::abs(dfrac - pfrac));
+          }
         }
-        bootHist[bootCtr] *= normalization;
+        // No normalization needed (probably)
+      }
+      else
+      {
+        for (size_t col = 0; col < d_data.numCols() ; ++col)
+        {
+          double pfrac = 0.0;
+          for (size_t row = 0; row < d_data.numSamples(); ++row)
+          {
+            double dfrac = static_cast< double >(row) / static_cast< double >(d_data.numSamples());
+            pfrac += static_cast< double >(d_countBuffer[col * d_data.numSamples() + row]) / static_cast< double >(ceilIters);
+            bootHist[boot] += (dfrac - pfrac) * (dfrac - pfrac);
+          }
+        }
+        bootHist[boot] *= d_data.normalization();
       }
     }
-
     *error = std::sqrt(std::abs(bootHist.square().mean() - bootHist.mean() * bootHist.mean()));
   }
-
   return result;
 }
 
+void Minim::buildHash(bool const extend)
+{
+  Eigen::Array< double, Eigen::Dynamic, Eigen::Dynamic > const &samples = d_generator->samples();
+  size_t offset = 0;
+
+  if (extend)
+  {
+    offset = d_hash_gen->rows();
+    d_hash_gen->conservativeResize(samples.rows(), samples.cols());
+  }
+  else
+  {
+    d_hash_gen->resize(samples.rows(), samples.cols());
+  }
+
+  Eigen::ArrayXXd const &data = d_data.cumulant();
+
+  for (size_t col = 0; col < samples.cols(); ++col)
+  {
+    for (size_t row = offset; row < samples.rows(); ++row)
+    {
+      int stepper = 0; 
+      while ((stepper < data.rows()) && (samples(row, col) > data(stepper, col)))
+        ++stepper;
+      (*d_hash_gen)(row, col) = stepper;
+    }
+  }
+}
 
 double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eigen::Array< double, 1, Eigen::Dynamic > const &dir, Eigen::ArrayXXd const &bounds, size_t rmIters, size_t const maxIters, double const tol)
 {
@@ -136,28 +200,49 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
   d_log << "[BRENT] " << center << std::endl;
   d_log << "[BRENT] " << dir << std::endl;
 
-  double a = 0.0;
-  double b = 0.0;
+  double a = -1.0;
+  double b = 1.0;
   double x = 0.0;
   double ex = 0.0;
   double eu = 0.0;
 
+  double xcache = -1.1; // Will never occur...
+  double fcache = 0.0;
+  double ecache = 0.0;
+
   // Bounds need to be calculated where the direction is non-zero.
   for (size_t col = 0; col < limits.cols(); ++col)
-    for (size_t row = 0; row < limits.rows(); ++row)
-    {
+  {
       if (dir(col) == 0.0)
-	continue;
-      double tmp = (limits(row, col) - center(col)) / dir(col);
-      if (tmp < 0)
-        a = round((tmp < a) ? tmp : a, tol);
+        continue;
+
+      size_t lowest = limits(0, col) < limits(1, col) ? 0 : 1;
+      size_t highest = lowest ? 0 : 1;
+      if (dir(col) > 0.0)
+      {
+        // Lower bound
+        double tmp = limits(lowest, col) / dir(col);
+        a = round((tmp > a) ? tmp : a, tol);
+
+        // Higher bound
+        tmp = limits(highest, col) / dir(col);
+        b = round((tmp < b) ? tmp : b, tol);
+      }
       else
-	b = round((tmp > b) ? tmp : b, tol);
-    }
+      {
+        // Lower bound
+        double tmp = limits(highest, col) / dir(col);
+        a = round((tmp > a) ? tmp : a, tol);
+
+        // Higher bound
+        tmp = limits(lowest, col) / dir(col);
+        b = round((tmp < b) ? tmp : b, tol);
+      }
+  }
 
   // If the limits are too close, just return here.
   if (std::abs(b - a) < tol)
-    return 0,0;
+    return 0.0;
 
   d_log << "[BRENT] Limits determined as: [" << a << ", " << b << "]." << std::endl;
 
@@ -209,8 +294,17 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
     }
 
     u = round((std::abs(d) >= tol) ? (x + d) : x + (d > 0 ? tol : -tol), tol);
-    d_log << "[BRENT] Calculating at u = " << u << " (x = " << x << ')' << std::endl;
-    fu = chiSq(center + u * dir, rmIters, &eu, nBoot);
+    if (u == xcache) // Does this ever happen? Don't think so, actually
+    {
+      d_log << "[BRENT] Cached results for u = " << u << " (x = " << x << ')' << std::endl;
+      fu = fcache;
+      eu = ecache;
+    }
+    else
+    {
+      d_log << "[BRENT] Calculating at u = " << u << " (x = " << x << ')' << std::endl;
+      fu = chiSq(center + u * dir, rmIters, &eu, nBoot);
+    }
     d_log << "[BRENT] Calculated fu +/- std as: " << fu << " +/- " << eu << std::endl;
 
     // Sufficient precision?
@@ -219,7 +313,7 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
     while (std::abs(fu - fx) < (3 * std::sqrt(eu * eu + ex * ex))) // Add condition to avoid rubbish points equivalent to zero...
     {
       d_log << "[BRENT] Insufficient separation, additional precision needed." << std::endl;
-      double fac = 1.33 * (3 * std::sqrt(eu * eu + ex * ex)) / std::max(std::abs(fu - fx), tol);
+      double fac = 1.33 * (3 * std::sqrt(eu * eu + ex * ex)) / std::max(std::abs(fu - fx), 1E-10);
       size_t newIters = static_cast< size_t >(fac * fac * static_cast< double >(rmIters));
       if (newIters == 0)
         newIters = maxIters + 1;
@@ -227,21 +321,52 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
       d_log << "[BRENT] New value for rmIters: " << newIters << std::endl;
       if (newIters > maxIters)
       {
-        d_log << "[BRENT] This value is too high, changing to finding phi bounds." << std::endl;
+        d_log << "[BRENT] This value is above the maximum, so we need to prepare for finding phi bounds." << std::endl;
         d_log << "[BRENT] a = " << a << ", b = " << b << ", x = " << x << ", u = " << u << "." << std::endl;
 
         switchGen();
-        d_log << "[BRENT] Extending precision for x = " << x << ": " << (center + x * dir) << std::endl;
-        fx = chiSq(center + x * dir, maxIters - rmIters, &ex, nBoot, true);
+        if (x == xcache)
+        {
+          d_log << "[BRENT] Cached results for x = " << x << ": " << (center + x * dir) << std::endl;
+          fx = fcache;
+          ex = ecache;
+        }
+        else
+        {
+          d_log << "[BRENT] Extending precision for x = " << x << ": " << (center + x * dir) << std::endl;
+          fx = chiSq(center + x * dir, maxIters - rmIters, &ex, nBoot, true);
+          xcache = x;
+          fcache = fx;
+          ecache = ex;
+        }
         d_log << "[BRENT] Calculated fx +/- std as: " << fx << " +/- " << ex << std::endl;
 
         switchGen();
-        d_log << "[BRENT] Extending precision for u = " << u << ": " << (center + u * dir) << std::endl;
-        fu = chiSq(center + u * dir, maxIters - rmIters, &eu, nBoot, true);
+        if (u == xcache)
+        {
+          d_log << "[BRENT] Cached results for u = " << u << ": " << (center + u * dir) << std::endl;
+          fu = fcache;
+          eu = ecache;
+        }
+        else
+        {
+          d_log << "[BRENT] Extending precision for u = " << u << ": " << (center + u * dir) << std::endl;
+          fu = chiSq(center + u * dir, maxIters - rmIters, &eu, nBoot, true);
+        }
+
         d_log << "[BRENT] Calculated fu +/- std as: " << fu << " +/- " << eu << std::endl;
         d_log << "[BRENT] Difference: " << fu - fx << " (" << (fu - fx) / (std::sqrt(eu * eu + ex * ex)) << " standard deviations)." << std::endl;
         if (std::abs(fu - fx) > (3 * std::sqrt(eu * eu + ex * ex)) || (std::sqrt(eu * eu + ex * ex)) > (fu / 4.0)) // Who knows? We may be out of the woods already...
+        {
+          d_log << "[BRENT] Separation sufficient at highest precision, so cancel phi bound searching for now." << std::endl;
+          if (fu < fx)
+          {
+            xcache = u;
+            fcache = fu;
+            ecache = eu;
+          }
           break;
+        }
 
         // First check that we're not accidentally on two sides of a proper minimum!
         double fb = 0.0;
@@ -328,11 +453,20 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
       }
 
       switchGen();
-      d_log << "[BRENT] Extending precision for x = " << x << ": " << (center + x * dir) << std::endl;
-      fx = chiSq(center + x * dir, newIters - rmIters, &ex, nBoot, true);
+      if (x == xcache)
+      {
+        d_log << "[BRENT] Cached results for x = " << x << ": " << (center + x * dir) << std::endl;
+        fx = fcache;
+        ex = ecache;
+      }
+      else
+      {
+        d_log << "[BRENT] Extending precision for x = " << x << ": " << (center + x * dir) << std::endl;
+        fx = chiSq(center + x * dir, newIters - rmIters, &ex, nBoot, true);
+      }
       d_log << "[BRENT] Calculated fx +/- std as: " << fx << " +/- " << ex << std::endl;
-
       switchGen();
+
       d_log << "[BRENT] Extending precision for u = " << u << ": " << (center + u * dir) << std::endl;
       fu = chiSq(center + u * dir, newIters - rmIters, &eu, nBoot, true);
       d_log << "[BRENT] Calculated fu +/- std as: " << fu << " +/- " << eu << std::endl;
@@ -347,9 +481,15 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
       v = w;
       w = x;
       x = u;
+
       fv = fw;
       fw = fx;
       fx = fu;
+
+      // We'll have cached results for this new minimum, too
+      xcache = u;
+      fcache = fu;
+      ecache = eu;
     }
 
     if (fu <= fx)
@@ -394,6 +534,13 @@ double Minim::brent(Eigen::Array< double, 1, Eigen::Dynamic > const &center, Eig
 
 void Minim::powell(Eigen::ArrayXd &start, Eigen::ArrayXXd &bounds, size_t const rmIters, size_t const maxIters, size_t const powIters, double const tol)
 {
+  d_log << "[POWELL] Start of calculation.\n"
+        << "[POWELL] Starting from: " << start.transpose() << ".\n"
+        << "[POWELL] Eigenvalue numbers: " << d_data.minEv() << " to " << d_data.maxEv() << ".\n"
+        << "[POWELL] Number of samples: " << d_data.numSamples() << ".\n"
+      << "[POWELL] Normalization is " << 1.0 / ((d_data.numCols()) * (0.5 - (Eigen::ArrayXd::LinSpaced(d_data.numSamples(), 1.0, static_cast< double >(d_data.numSamples())) / 
+                                                                   static_cast< double >(d_data.numSamples()))).square().sum()) << '.' << std::endl;
+
   size_t const n = start.size();
 
   // Start with the parameters as principal directions
@@ -466,42 +613,19 @@ void Minim::powell(Eigen::ArrayXd &start, Eigen::ArrayXXd &bounds, size_t const 
     round(dirs, tol);
     d_log << "[POWELL] After reorthogonalization:\n" << dirs << std::endl;
   }
-  
+
+  if (d_mpirank == 0)
+  {
+    d_control.order[0] = -1; // END_PROGRAM
+    MPI_Bcast(&d_control, 1, MPI_CONTROL, 0, MPI_COMM_WORLD);
+  }
+
   if (iter == (powIters - 1))
     d_log << "[POWELL] Warning: Iteration count exceeded!" << std::endl;
-  
-  d_log << "[POWELL] Final result: " << d_res.transpose() ;
+
+  d_log << "[POWELL] Final result: " << d_res.transpose() << std::endl;
 
   d_generator->calculate(d_res, maxIters);
-
-  std::ofstream rstream("fit_result.dat", std::ofstream::trunc);
-
-  rstream << "# Params: " << d_res.transpose() << std::endl;
-
-  for (int x = d_nEig_min; x < d_nEig_max; ++x)
-  {
-    int colNum = (x < 0) ? x : x + 1;
-    std::ostringstream colLab;
-    if (x < 0)
-      colLab << "\"EV.m" << -colNum << '\"';
-    else
-      colLab << "\"EV.p" << colNum << '\"';
-   rstream << std::setw(15) << colLab.str();
-  }
-  rstream << std::endl;
-
-  for (int k = 0; k < maxIters; ++k)
-  {
-    std::ostringstream lineLab;
-    lineLab << '\"' << (k + 1) << '\"';
-    rstream << std::setw(10) << lineLab.str();
-
-    for (int x = 0; x < d_nEig_max - d_nEig_min; ++x)
-      rstream << std::setw(15) << std::setiosflags(std::ios::fixed) << std::setprecision(8) << d_generator->result(k, x);
-
-    rstream << std::endl;
-  }
-  rstream.close();
 }
 
 
@@ -557,4 +681,89 @@ double Minim::phi(double const start, double const edge, size_t const iter, Eige
 
   // Room left, so go for it!
   return phi(start, attempt, iter, center, dir, value, error, tol, bval, berr);
+}
+
+inline void Minim::switchGen()
+{
+  if (d_mpirank == 0)
+  {
+    d_control.order[0] = 1; // SWITCH_GEN
+    MPI_Bcast(&d_control, 1, MPI_CONTROL, 0, MPI_COMM_WORLD);
+  }
+  RanMat *tmp = d_generator;
+  d_generator = d_secondary;
+  d_secondary = tmp;
+
+  Eigen::ArrayXXi *tmp_hash = d_hash_gen;
+  d_hash_gen = d_hash_sec;
+  d_hash_sec = tmp_hash;
+}
+
+void Minim::listen()
+{
+  if (d_mpirank == 0)
+    return; // Should never be called on root anyway
+
+  size_t nBoot;
+  size_t iter;
+  size_t numSamples;
+  Eigen::ArrayXd pars(5); // To parse the parameters into
+
+  while (1)
+  {
+    MPI_Bcast(&d_control, 1, MPI_CONTROL, 0, MPI_COMM_WORLD); // This is a passive call, await root's orders
+    switch(d_control.order[0])
+    {
+      case -1: // END_CYCLE
+        return; // End of program, break cycle
+      case 1: // SWITCH_GEN
+        switchGen();
+        break;
+      case 2: // CALC_NEW
+        iter = static_cast< size_t >(d_control.order[1]);
+        pars << d_control.params[0], d_control.params[1], d_control.params[2], d_control.params[3], d_control.params[4];
+        d_generator->calculate(pars, d_control.order[1], false);
+        buildHash(false);
+        clearCountBuffer();
+        for (size_t idx = 0; idx < d_control.order[1]; ++idx)
+          addSampleToCount(idx);
+        condense();
+        break;
+      case 3: // CALC_EXTEND
+        iter = static_cast< size_t >(d_control.order[1]);
+        pars << d_control.params[0], d_control.params[1], d_control.params[2], d_control.params[3], d_control.params[4];
+        d_generator->calculate(pars, d_control.order[1], true);
+        buildHash(true);
+        clearCountBuffer();
+        for (size_t idx = 0; idx < d_control.order[1]; ++idx)
+          addSampleToCount(idx);
+        condense();
+        break;
+      case 4: // BOOTSTRAP
+        nBoot = d_control.order[1];
+        numSamples = d_hash_gen->rows() * d_numnodes;
+        for (size_t boot = 0; boot < nBoot; ++boot)
+        {
+          clearCountBuffer();
+          for (size_t ctr = 0; ctr < numSamples; ++ctr)
+          {
+            size_t ranSample = static_cast< size_t >(d_sampler->IRandomX(0, numSamples - 1));
+            if ((ranSample / d_hash_gen->rows()) == d_mpirank)
+              addSampleToCount(ranSample % d_hash_gen->rows());
+          }
+          condense();
+        }
+        break;
+      default: // Weird unknown value, should be a programming error. Better crash here.
+        return;
+    }
+  }
+}
+
+void Minim::condense()
+{
+  MPI_Reduce(d_countBuffer, d_countBackup, static_cast< int >(d_data.numSamples() * d_data.numCols()), MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+  unsigned long int *tmp = d_countBuffer;
+  d_countBuffer = d_countBackup;
+  d_countBackup = tmp;
 }
