@@ -17,21 +17,17 @@ int main(int argc, char **argv)
   {
     if (myRank == 0)
     {
-      std::cerr << "# RMFIT MPI v3.1\n"
+      std::cerr << "# RMFIT MPI v4.0\n"
 		<< "Need an input file!\n" 
 		<< "This file should contain the following lines (... indicate input values):\n\n"
 		<< "data = ...\n"
 		<< "N = ...\n"
 		<< "nu = ...\n"
-		<< "m = ... ...\n"
-		<< "a6 = ... ...\n"
-		<< "a7 = ... ...\n"
-		<< "a8 = ... ...\n"
-		<< "sigma = ... ...\n"
-		<< "iter = ... ...\n"
-                << "tol = ...\n"
-                << "kolmogorov = ...\n"
-		<< "bootSeed = ..\n\n"
+		<< "m = ...\n"
+		<< "a6 = ...\n"
+		<< "a7 = ...\n"
+		<< "a8 = ...\n"
+		<< "sigma = ...\n"
 		<< "The name of this input file should be the only argument.\n"
 		<< "Now exiting." << std::endl;
     }
@@ -42,49 +38,29 @@ int main(int argc, char **argv)
   FitParams params(argv[1], true); // Reads in parallel
   Data data(params.data.c_str(), params.bootSeed, true); // Reads in parallel
    
-  Minim *minim = new Minim(data, params.N, params.nu, params.kol); // Set up the minimization structure
-
-  if (myRank != 0)
+  Minim *minim = new Minim(&data, &params);
+  Simplex const &result = minim->reduce();
+  
+  if (myRank == 0)
   {
-    minim->listen();
-  }
-  else
-  {
-    int mpisize;
-    MPI_Comm_size(MPI_COMM_WORLD, &mpisize);
-
-    // If we arrive here, we're the master node.
-    minim->log() << "**********************************\n"
-                << "RMFIT MPI v3.1 -- FITTING REPORT\n\n"
-                << "data = " << params.data << '\n'
-                << "N = " << params.N << '\n'
-                << "nu = " << params.nu << '\n'
-                << "m = " << params.m[0] <<  ' ' << params.m[1] << '\n'
-                << "a6 = " << params.a6[0] << ' ' << params.a6[1] << '\n'
-                << "a7 = " << params.a7[0] << ' ' << params.a7[1] << '\n'
-                << "a8 = " << params.a8[0] << ' ' << params.a8[1] << '\n'
-                << "sigma = " << params.sigma[0] << ' ' << params.sigma[1] << '\n'
-                << "iter = " << params.iter[0] << ' ' << params.iter[1] << '\n'
-                << "tol = " << params.tol << '\n'
-                << "kolmogorov = " << params.kol << '\n'
-                << "bootSeed = " << params.bootSeed << '\n'
-                << "Running with " << mpisize << " MPI processes\n"
-                << "**********************************\n" << std::endl;
-    
-    // We want to jiggle the starting values a bit, to avoid sklerotic behaviour
-    // The quality of this doesn't have to be brilliant, so let's just use C's crappy random function
-    srand(time(0));
-    Eigen::ArrayXd start(5);
-    start << params.m[0] + (params.m[1] - params.m[0]) * (static_cast< double >(rand()) / RAND_MAX),
-             params.a6[0] + (params.a6[1] - params.a6[0]) * (static_cast< double >(rand()) / RAND_MAX),
-             params.a7[0] + (params.a7[1] - params.a7[0]) * (static_cast< double >(rand()) / RAND_MAX),
-             params.a8[0] + (params.a8[1] - params.a8[0]) * (static_cast< double >(rand()) / RAND_MAX),
-             params.sigma[0] + (params.sigma[1] - params.sigma[0]) * (static_cast< double >(rand()) / RAND_MAX);
-
-    Eigen::ArrayXXd bounds(2, 5);
-    bounds << params.m[0], params.a6[0], params.a7[0], params.a8[0], params.sigma[0],
-              params.m[1], params.a6[1], params.a7[1], params.a8[1], params.sigma[1];
-    minim->powell(start, bounds, params.iter[0], params.iter[1], 50, params.tol);
+    std::cout << "Obtained the following result:\n"
+              << "Values for D: " << result.values[0].value << ' ' << result.values[1].value << ' ' 
+                                  << result.values[2].value << ' ' << result.values[3].value << ' '
+                                  << result.values[4].value << ' ' << result.values[5].value << '\n'
+              << "Values for sigma: " << result.points[0].sigma << ' ' << result.points[1].sigma << ' ' 
+                                  << result.points[2].sigma << ' ' << result.points[3].sigma << ' '
+                                  << result.points[4].sigma << ' ' << result.points[5].sigma << '\n'
+              << "Values for m: " << result.points[0].m << ' ' << result.points[1].m << ' ' 
+                                  << result.points[2].m << ' ' << result.points[3].m << ' '
+                                  << result.points[4].m << ' ' << result.points[5].m << '\n'
+              << "Values for a6: " << result.points[0].a6 << ' ' << result.points[1].a6 << ' ' 
+                                  << result.points[2].a6 << ' ' << result.points[3].a6 << ' '
+                                  << result.points[4].a6 << ' ' << result.points[5].a6 << '\n'
+              << "Values for a7: " << result.points[0].a7 << ' ' << result.points[1].a7 << ' ' 
+                                  << result.points[2].a7 << ' ' << result.points[3].a7 << ' '
+                                  << result.points[4].a7 << ' ' << result.points[5].a7 << '\n'
+              << "Values for a8: " << result.points[0].a8 << ' ' << result.points[1].a8 << ' ' 
+                                  << result.points[2].a8 << ' ' << result.points[3].a8 << ' '
   }
   delete minim;
   MPI_Finalize();

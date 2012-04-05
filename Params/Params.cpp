@@ -81,20 +81,6 @@ void Params::parseInput(char const *filename)
       continue;
     }
 
-    if (sline.find("nDet = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      nDet = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("iter = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      iter = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
     if (sline.find("output = ") != sline.npos)
     {
       size_t idx = sline.find("=");
@@ -179,36 +165,6 @@ void FitParams::parseInput(char const *filename)
       sigma[1] = istr;
       continue;
     }
-
-    if (sline.find("iter = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      iter[0] = istr;
-      iter[1] = istr;
-      continue;
-    }
-
-    if (sline.find("tol = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      tol = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("kolmogorov = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      kol = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-    
-    if (sline.find("bootSeed = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      bootSeed = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
   }
 }
 
@@ -272,8 +228,7 @@ void FitParams::parseInputParallel(char const *filename)
     {
       size_t idx = sline.find("=");
       XLat istr(sline.c_str() + idx + 2);
-      m[0] = istr;
-      m[1] = istr;
+      p.m = istr;
       continue;
     }
 
@@ -281,8 +236,7 @@ void FitParams::parseInputParallel(char const *filename)
     {
       size_t idx = sline.find("=");
       XLat istr(sline.c_str() + idx + 2);
-      a6[0] = istr;
-      a6[1] = istr;
+      p.a6 = istr;
       continue;
     }
 
@@ -290,8 +244,7 @@ void FitParams::parseInputParallel(char const *filename)
     {
       size_t idx = sline.find("=");
       XLat istr(sline.c_str() + idx + 2);
-      a7[0] = istr;
-      a7[1] = istr;
+      p.a7 = istr;
       continue;
     }
 
@@ -299,8 +252,7 @@ void FitParams::parseInputParallel(char const *filename)
     {
       size_t idx = sline.find("=");
       XLat istr(sline.c_str() + idx + 2);
-      a8[0] = istr;
-      a8[1] = istr;
+      p.a8 = istr;
       continue;
     }
 
@@ -308,38 +260,7 @@ void FitParams::parseInputParallel(char const *filename)
     {
       size_t idx = sline.find("=");
       XLat istr(sline.c_str() + idx + 2);
-      sigma[0] = istr;
-      sigma[1] = istr;
-      continue;
-    }
-
-    if (sline.find("iter = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      iter[0] = istr;
-      iter[1] = istr;
-      continue;
-    }
-
-    if (sline.find("tol = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      tol = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("kolmogorov = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      kol = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-    
-    if (sline.find("bootSeed = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      bootSeed = XLat(sline.c_str() + idx + 2);
+      p.sigma = istr;
       continue;
     }
   }

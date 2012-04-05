@@ -156,6 +156,18 @@ Eigen::ArrayXXd const &Data::cumulant() const
   return d_summary;
 }
 
+double *Data::flatPerColumn() const
+{
+  double *pdata = new double[d_data.rows() * d_data.cols()];
+  for (size_t col = 0; col < d_data.cols(); ++col)
+  {
+    for (size_t row = 0; row < d_data.rows(); ++row)
+      pdata[row + col * d_data.rows()] = d_data.coeff(row, col);
+    std::sort(pdata + col * d_data.rows(), pdata + (col + 1) * d_data.rows());
+  }
+  return pdata;
+}
+
 double *Data::flat() const
 {
   double *pdata = new double[d_data.rows() * d_data.cols()];

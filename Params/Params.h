@@ -2,6 +2,7 @@
 
 #include <string>
 #include <sstream>
+#include <Point/Point.h>
 
 class XLat
 {
@@ -32,8 +33,6 @@ struct Params
   double sigma;
   int    nEig_min;
   int    nEig_max;
-  size_t nDet;
-  size_t iter;
   std::string output;
 
   Params(char const *filename);
@@ -52,16 +51,7 @@ struct FitParams
   size_t N;
   size_t nu;
 
-  double m[2];
-  double a6[2];
-  double a7[2];
-  double a8[2];
-  double sigma[2];
-
-  size_t iter[2];
-  double tol;
-  size_t kol;
-  int bootSeed;
+  Point p;
 
   FitParams(char const *filename, bool const parallel = false);
   void parseInput(char const *filename);

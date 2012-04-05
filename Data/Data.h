@@ -48,6 +48,7 @@ class Data
 
     double *flat() const;
     double *flat(size_t const &col) const;
+    double *flatPerColumn() const
 };
 
 inline int Data::minEv() const
