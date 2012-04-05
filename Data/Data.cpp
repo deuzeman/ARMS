@@ -137,29 +137,6 @@ Eigen::ArrayXXd const &Data::average(size_t const nBoot) const
   return d_summary;
 }
 
-Eigen::ArrayXXd const &Data::ratios(size_t const nBoot) const
-{
-  if (d_cur != RAT)
-  {
-    size_t ratDim = (d_data.cols() * (d_data.cols() - 1)) / 2;
-
-    d_summary.resize(2, ratDim);
-    Eigen::ArrayXXd ratios(d_data.rows(), ratDim);
-
-    size_t ctr = 0;
-    for (size_t num = 0; num < (d_data.cols() - 1); ++num)
-      for (size_t den = num + 1; den < d_data.cols(); ++den)
-        ratios.col(ctr++) =  d_data.col(num) / d_data.col(den);
-
-    d_summary.row(0) = ratios.colwise().mean();
-
-    bootstrap(nBoot, ratios);
-
-    d_cur = RAT;
-  }
-  return d_summary;
-}
-
 Eigen::ArrayXXd const &Data::cumulant() const
 {
   if (d_cur != CUM)

@@ -36,7 +36,6 @@ class Data
     Data(char const *filename, int bootSeed = 0, bool const parallel = false);
 
     Eigen::ArrayXXd const &average(size_t const nBoot) const;
-    Eigen::ArrayXXd const &ratios(size_t const nBoot) const;
     Eigen::ArrayXXd const &cumulant() const;
 
     int minEv() const;
