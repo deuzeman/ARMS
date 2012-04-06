@@ -59,7 +59,6 @@ struct FitParams
 };
 
 inline FitParams::FitParams(char const *filename, bool const parallel)
-  : kol(0)
 {
   if (parallel)
     parseInputParallel(filename);

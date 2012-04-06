@@ -3,9 +3,12 @@
 #include <complex>
 #include <cstdlib>
 #include <ctime>
+#include <mpi.h>
 
+#include <Data/Data.h>
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <Point/Point.h>
 #include <Random/stocc.h>
 
 
@@ -42,41 +45,47 @@ class RanMat
     MCD d_B;
     MCD d_W;
     
-    MCD d_gamma5;
+    MCD d_gamma_5;
 
     Eigen::SelfAdjointEigenSolver< MCD > d_slv;
     
     double *d_result;
-    double *d_resultDiscrete;
-    bool d_isDiscretized;
+    mutable size_t *d_resultDiscrete;
+    mutable bool d_isDiscretized;
 
   public:
     RanMat(size_t const N, size_t const nu, int const eigMin, int const eigMax);
     ~RanMat();
 
     void calculate(Point const &params, size_t iter, bool const extend = false);
-    void discretizedouble const *breaks, int eigMin, size_t const levels, size_t const eigs);
+    size_t *discretize(double const *breaks, int eigMin, size_t const levels, size_t const eigs) const;
 
     size_t eigToIndex(int eig) const;
     
     double const *result() const;
-    size_t const *result_discrete() const;
+    size_t const *resultDiscrete() const;
     size_t const &numEigs() const;
+    size_t const &eigMin() const;
     size_t const &numSamples() const;
-    size_t const &nodes() const;
+    int const &nodes() const;
     size_t const &N() const;
-    int const &nu() const;
+    size_t const &nu() const;
     bool const &isDiscretized() const;
 };
 
 void kolmogorov(StatVal *kol, RanMat const &sim, Data const &data);
 
-inline RanMat::MCD const &RanMat::result() const
+inline int const &RanMat::nodes() const
+{
+  return d_nodes;
+}
+
+inline double const *RanMat::result() const
 {
   return d_result;
 }
 
-inline double const *RanMat::resultDiscrete() const
+inline size_t const *RanMat::resultDiscrete() const
 {
   return d_resultDiscrete;
 }
@@ -86,9 +95,9 @@ inline size_t RanMat::eigToIndex(int eig) const
   return (eig > 0) ? (d_N + eig - 1) : (d_N + eig);
 }
 
-inline bool const &isDiscretized() const
+inline bool const &RanMat::isDiscretized() const
 {
-  return d_is_discretized;
+  return d_isDiscretized;
 }
 
 inline size_t const &RanMat::numEigs() const
@@ -98,7 +107,7 @@ inline size_t const &RanMat::numEigs() const
 
 inline size_t const &RanMat::numSamples() const
 {
-  return d_result.rows();
+  return d_samples;
 }
 
 inline size_t const &RanMat::eigMin() const
@@ -106,17 +115,12 @@ inline size_t const &RanMat::eigMin() const
   return d_eigMin;
 }
 
-inline size_t const &RanMat::nodes() const
-{
-  return d_nodes;
-}
-
 inline size_t const &RanMat::N() const
 {
   return d_N;
 }
 
-inline int const &RanMat::nu() const
+inline size_t const &RanMat::nu() const
 {
   return d_nu;
 }

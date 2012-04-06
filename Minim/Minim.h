@@ -1,7 +1,7 @@
 #pragma once
 
 #include <mpi.h>
-#include <Eigen/Eigen.h>
+#include <Eigen/Dense>
 #include <Params/Params.h>
 #include <Point/Point.h>
 #include <RanMat/RanMat.h>
@@ -19,16 +19,16 @@ inline Simplex::Simplex(Point const &p)
   int rank;
   if (rank == 0)
   {
-    seed(time());
+    srand(time(0));
     points[0] = p;
     // Plug in random shifts for the other values
     for (size_t idx = 1; idx < 6; ++idx)
     {
-      points[idx].sigma = p.sigma * (1 + (0.5 * ((rand() / RANDMAX) - 1)));
-      points[idx].m     = p.m     * (1 + (0.5 * ((rand() / RANDMAX) - 1)));
-      points[idx].a6    = (std::abs(a6) > 1e-8) ? p.a6 * (1 + (0.5 * ((rand() / RANDMAX) - 1))) : 0.0;
-      points[idx].a7    = (std::abs(a7) > 1e-8) ? p.a7 * (1 + (0.5 * ((rand() / RANDMAX) - 1))) : 0.0;
-      points[idx].a8    = (std::abs(a8) > 1e-8) ? p.a8 * (1 + (0.5 * ((rand() / RANDMAX) - 1))) : 0.0;
+      points[idx].sigma = p.sigma * (1 + (0.5 * ((rand() / RAND_MAX) - 1)));
+      points[idx].m     = p.m     * (1 + (0.5 * ((rand() / RAND_MAX) - 1)));
+      points[idx].a6    = (std::abs(p.a6) > 1e-8) ? p.a6 * (1 + (0.5 * ((rand() / RAND_MAX) - 1))) : 0.0;
+      points[idx].a7    = (std::abs(p.a7) > 1e-8) ? p.a7 * (1 + (0.5 * ((rand() / RAND_MAX) - 1))) : 0.0;
+      points[idx].a8    = (std::abs(p.a8) > 1e-8) ? p.a8 * (1 + (0.5 * ((rand() / RAND_MAX) - 1))) : 0.0;
     }
   }
   MPI_Bcast(points, 30, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -53,5 +53,5 @@ class Minim
 };
 
 inline Minim::Minim(Data const *data, FitParams const *params)
-: d_data(data), d_N(N), d_nu(nu), d_simplex(params->p), d_engine(params->N, params->nu, data->eigMin, data->eigMax)
+: d_data(data), d_N(params->N), d_nu(params->nu), d_simplex(params->p), d_engine(params->N, params->nu, data->eigMin, data->eigMax)
 {}

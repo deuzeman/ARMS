@@ -5,7 +5,7 @@
 
 RanMat::RanMat(size_t const N, size_t const nu, int const eigMin, int const eigMax)
 : d_N(N), d_nu(nu), d_scale(1.0 / static_cast< double >(2 * d_N + d_nu)),
-d_eigMin(eigToIndex(eigMin)), d_numEigs(eigMax - eigMin),
+d_eigMin(eigToIndex(eigMin)), d_numEigs(eigMax - eigMin), d_rstream(0),
 d_Z(MCD::Zero(2 * d_N + d_nu, 2 * d_N + d_nu)),
 d_gamma_5(MCD::Zero(2 * d_N + d_nu, 2 * d_N + d_nu)),
 d_A(d_N + d_nu, d_N + d_nu), d_B(d_N, d_N), d_W(d_N + d_nu, d_N),
@@ -28,8 +28,8 @@ d_slv(2 * d_N + d_nu), d_result(0), d_resultDiscrete(0), d_isDiscretized(false)
   for (size_t idx = 0; idx < 2 * N + nu; ++idx)
     d_gamma_5(idx, idx) = idx < (N + nu) ? 1.0 : -1.0;
   
-  srand(time())
-  for (size_t ctr = 0; ctr < rank; ++rank)
+  srand(time(0));
+  for (size_t ctr = 0; ctr < d_rank; ++ctr)
     rand(); // We fast-forward the stream to be more or less uncorrelated for each process now
   d_rstream.RandomInit(rand()); // Now use the crappy number to seed the Mersenne twister
 }
@@ -59,9 +59,9 @@ void RanMat::calculate(Point const &params, size_t iter, bool const extend)
   double *tmp = new double[iter + offset];
   if (extend && d_result)
     for (size_t eig = 0; eig < d_numEigs; ++eig)
-      std::copy(d_result + eig * d_samples; d_result + (eig + 1) * d_samples; tmp + eig * (d_samples + iter));
-  delete[] result;
-  result = tmp;
+      std::copy(d_result + eig * d_samples, d_result + (eig + 1) * d_samples, tmp + eig * (d_samples + iter));
+  delete[] d_result;
+  d_result = tmp;
   d_samples = iter + offset;
   
   for (size_t ctr = offset; ctr < offset + iter; ++ctr)
@@ -95,22 +95,22 @@ void RanMat::calculate(Point const &params, size_t iter, bool const extend)
   d_isDiscretized = false;
 }
 
-size_t *RanMat::discretize(double const *breaks, int eigMin, size_t const levels, size_t const eigs)
+size_t *RanMat::discretize(double const *breaks, int eigMin, size_t const levels, size_t const eigs) const
 {
   delete[] d_resultDiscrete;
-  d_resultDiscrete = new double[d_result.rows() * eigs];
+  d_resultDiscrete = new size_t[d_samples * eigs];
   size_t startCol = eigToIndex(eigMin);
-  if ((startCol < d_eigMin) || ((startCol + eigs) > (d_eigMin + d_numEigs))
+  if ((startCol < d_eigMin) || ((startCol + eigs) > (d_eigMin + d_numEigs)))
     exit(1);
   startCol -= d_eigMin;
   for (size_t col = 0; col < eigs; ++col)
     for (size_t row = 0; row < d_samples; ++row)
     {
-      double const val = d_result((startCol + col) * d_samples + row);
+      double const val = d_result[(startCol + col) * d_samples + row];
       size_t idx = 0;
       while ((idx < levels) && (val > breaks[col * levels + idx]))
         ++idx;
-      d_resultDiscrete[col * d_results.rows() + row] = idx;
+      d_resultDiscrete[col * d_samples + row] = idx;
     }
     d_isDiscretized = true;
   return d_resultDiscrete;
@@ -143,7 +143,7 @@ void kolmogorov(StatVal *kol, RanMat const &sim, Data const &data)
   {
     std::copy(fullCum, fullCum + (levels + 1) * eigs, jackCum);
     for (size_t col = 0; col < eigs; ++col)
-      for (size_t row = blockIdx * blockRanMat::Size; row < (blockIdx + 1) * blockSize; ++row)
+      for (size_t row = blockIdx * blockSize; row < (blockIdx + 1) * blockSize; ++row)
         jackCum[col * levels + dres[col * samples + row]] -= contrib; // Substract this sample!
     for (size_t col = 0; col < eigs; ++col)
       for (size_t row = 1; row < levels; ++row)
@@ -158,13 +158,13 @@ void kolmogorov(StatVal *kol, RanMat const &sim, Data const &data)
   // Create the global cumulant for fullCum
   for (size_t col = 0; col < eigs; ++col)
     for (size_t row = 1; row < levels; ++row)
-      fullCum[col * levels + row] += fullCum[col * levels + row - 1]
+      fullCum[col * levels + row] += fullCum[col * levels + row - 1];
   MPI_Allreduce(MPI_IN_PLACE, fullCum, samples * sim.nodes(),  MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   
   kol->value = 0.0;
   for (size_t col = 0; col < eigs; ++col)
     for (size_t row = 1; row < levels; ++row)
-      v = std::max(*kol, std::abs(fullCum[col * (levels + 1) + row] - col * inc));
+      kol->value = std::max(kol->value, std::abs(fullCum[col * (levels + 1) + row] - col * inc));
   
   for (size_t idx = 0; idx < blocks; ++idx)
     kol->error += (jackRes[idx] - kol->value) * (jackRes[idx] - kol->value);
