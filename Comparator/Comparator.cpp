@@ -34,7 +34,7 @@ double Comparator::kolmogorov(Point const &point)
     size_t *dres = d_ranmat.discretize(breaks, d_minEv, d_levels, d_eigs);
     size_t blckCtr = 0;
     for (size_t col = 0; col < d_eigs; ++col)
-      for (size_t row = 0; row < (needed / d_nodes); ++row) // NOTE samples is *all* samples, not just the ones available locally!
+      for (size_t row = 0; row < (needed / d_nodes); ++row)
       {
         full[col * d_levels + dres[col * (needed / d_nodes) + row]] += contrib;
         dists[(blckCtr * (d_levels + 1) * d_eigs) +  col * d_levels + dres[col * (needed / d_nodes) + row]] += contrib;
@@ -43,19 +43,24 @@ double Comparator::kolmogorov(Point const &point)
       }
     delete[] dres;
     
+    // Aggregate the data to make cumulative a distribution -- we will do this below for the blocks
+    std::partial_sum(full, full + (d_levels + 1) * d_eigs, cum);
+    std::copy(cum, (d_levels + 1) * d_eigs, full);
+    
     // Perform a jackknife error estimate -- calculate all the samples
     for (size_t blockIdx = 0; blockIdx < d_blocks; ++blockIdx)
     {
-      // Calculate the jackknife sample
+      // Calculate the jackknife sample -- first taking the cumulative of the separate blocks
+      // We do that here, because there's no point in copying those values back.
+      std::partial_sum(dists + blockIdx * (d_levels + 1) * d_eigs, dists + (blockIdx + 1) * (d_levels + 1) * d_eigs, cum);
       for (size_t idx = 0; idx < (d_levels + 1) * d_eigs; ++idx)
-        subt[idx] = rescale * (full[idx] - dists[d_blocks * (d_levels + 1) * d_eigs + idx]);
+        subt[idx] = rescale * (full[idx] - cum[idx]);
 
       // Calculate the cumulative sum
-      // NOTE Can't we do this at once and store the data in this way? Should be faster
-      std::partial_sum(subt, subt + (d_levels + 1) * d_eigs, cum);
-      MPI_Allreduce(MPI_IN_PLACE, cum, (d_levels + 1) * d_eigs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, subt, (d_levels + 1) * d_eigs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
       
       // Calculate the maximum deviation
+      // NOTE Check -- we probably need to take into account both sides of the step function!
       jack[blockIdx] = 0.0;
       for (size_t col = 0; col < d_eigs; ++col)
         for (size_t row = 1; row < d_levels; ++row)
@@ -63,14 +68,12 @@ double Comparator::kolmogorov(Point const &point)
     }
     
     // At this point, jack contains an array of jackknife averages. Now we need the proper estimate.
-    // Create the global cumulant for fullCum
-    std::partial_sum(full, full + (d_levels + 1) * d_eigs, cum);
-    MPI_Allreduce(MPI_IN_PLACE, cum, (d_levels + 1) * d_eigs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, full, (d_levels + 1) * d_eigs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     
     result = 0.0;
     for (size_t col = 0; col < d_eigs; ++col)
       for (size_t row = 1; row < d_levels; ++row)
-        result = std::max(result, std::abs(fullCum[col * (d_levels + 1) + row] - col * inc));
+        result = std::max(result, std::abs(full[col * (d_levels + 1) + row] - col * inc));
       
     // Now calculate the relative error
     // Remember: this is a jackknife, so we *sum* over differences squared and do the rescaling
