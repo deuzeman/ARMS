@@ -1,45 +1,38 @@
 #include <Point/Point.h>
 
-inline Point &Point::operator=(Point const &other)
+Point::Point(double sigma, double m, double a6, double a7, double a8)
 {
-  sigma = other.sigma;
-  m = other.m;
-  a6 = other.a6;
-  a7 = other.a7;
-  a8 = other.a8;
-  
+  coord[0] = sigma;
+  coord[1] = m;
+  coord[2] = a6;
+  coord[3] = a7; 
+  coord[4] = a8;
+}
+
+Point &Point::operator+=(Point const &other)
+{
+  for (size_t idx = 0; idx < 5; ++idx)
+    coord[idx] += other.coord[idx];
   return *this;
 }
 
-inline Point &Point::operator+=(Point const &other)
+Point &Point::operator-=(Point const &other)
 {
-  sigma += other.sigma;
-  m     += other.m;
-  a6    += other.a6;
-  a7    += other.a7;
-  a8    += other.a8;
-  
+  for (size_t idx = 0; idx < 5; ++idx)
+    coord[idx] += other.coord[idx];
   return *this;
 }
 
-inline Point &Point::operator-=(Point const &other)
+Point &Point::operator*=(double fac)
 {
-  sigma -= other.sigma;
-  m     -= other.m;
-  a6    -= other.a6;
-  a7    -= other.a7;
-  a8    -= other.a8;
-  
+  for (size_t idx = 0; idx < 5; ++idx)
+    coord[idx] *= fac;
   return *this;
 }
 
-inline Point &Point::operator*=(double fac)
+Point &Point::operator/=(double fac)
 {
-  sigma *= fac;
-  m     *= fac;
-  a6    *= fac;
-  a7    *= fac;
-  a8    *= fac;
-  
+  for (size_t idx = 0; idx < 5; ++idx)
+    coord[idx] /= fac;
   return *this;
 }

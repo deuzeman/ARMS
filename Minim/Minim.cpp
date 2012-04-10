@@ -3,17 +3,17 @@
 double Minim::evalPoint(size_t idx)
 {
   size_t iter = 2000;
-  d_engine.calculate(d_simplex->points[idx], iter, false);
-  kolmogorov(d_simplex->values + idx, d_engine, *data);
-  double relError = (d_simplex->values[idx].error / d_simplex->values[idx].value);
+  d_engine.calculate(d_simplex.points[idx], iter, false);
+  kolmogorov(d_simplex.values + idx, d_engine, *d_data);
+  double relError = (d_simplex.values[idx].error / d_simplex.values[idx].value);
   while (relError > 1e-4)
   {
     double fac = relError / 1e-4;
-    iter = static_cast< size_t >((fac * fac - 0.9) * d_engine.numSamples);
-    d_engine.calculate(d_simplex->points[idx], iter, true);
-    kolmogorov(d_simplex->values + idx, d_engine, *data));
+    iter = static_cast< size_t >((fac * fac - 0.9) * d_engine.numSamples());
+    d_engine.calculate(d_simplex.points[idx], iter, true);
+    kolmogorov(d_simplex.values + idx, d_engine, *d_data);
   }
-  return d_simplex->values[idx].value;
+  return d_simplex.values[idx].value;
 }
 
 size_t Minim::sortLocation(size_t idx, Simplex *simplex)
@@ -23,7 +23,7 @@ size_t Minim::sortLocation(size_t idx, Simplex *simplex)
   {
     if (secIdx == idx)
       continue;
-    if (simplex->value[idx] > simplex->value[secIdx])
+    if (simplex->values[idx].value > simplex->values[secIdx].value)
       ++loc;
   }
 }

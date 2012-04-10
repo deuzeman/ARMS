@@ -46,12 +46,12 @@ class Minim
   public:
     Minim(Data const *data, FitParams const *params);
     
-    Point *reduce(Point *initial, double prec);
-    double evalPoint(size_t idx) const;
+    Simplex const &reduce();
+    double evalPoint(size_t idx);
     void   sortPoints(size_t *ranking, Simplex *simplex);
-    void   sortLocation(size_t idx, Simplex *simplex);
+    size_t sortLocation(size_t idx, Simplex *simplex);
 };
 
 inline Minim::Minim(Data const *data, FitParams const *params)
-: d_data(data), d_N(params->N), d_nu(params->nu), d_simplex(params->p), d_engine(params->N, params->nu, data->eigMin, data->eigMax)
+: d_data(data), d_N(params->N), d_nu(params->nu), d_simplex(params->p), d_engine(params->N, params->nu, data->minEv(), data->maxEv())
 {}
