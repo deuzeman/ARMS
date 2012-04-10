@@ -1,7 +1,7 @@
 #include <Simplex.h>
 
-Simplex::Simplex(Point const &center, Point const &scale)
-: d_dim(0)
+Simplex::Simplex(Point const &center, Point const &scale, Comparator &comp, double prec)
+: d_dim(0), d_prec(prec), d_comp(comp)
 {
   for (size_t idx = 0; idx < 5; ++idx)
     d_active[idx] = (std::abs(scale.coord[idx] / center.coord[idx]) > 1e-6);
@@ -24,11 +24,16 @@ Simplex::Simplex(Point const &center, Point const &scale)
     ++actIdx;
   }
   
+  // We want our values precise enough, so let's request things an order or magnitude
+  // better than we would like this minimization to be.
+  d_comp.setPrecision(0.1 * comp);
   for (size_t idx = 0; idx < d_dim; ++idx)
   {
     d_values[idx] = new double;
-    *d_values[idx] = d_ranmat.kolmogorov(*d_points[idx]);
+    *d_values[idx] = d_comp.kolmogorov(*d_points[idx]);
   }
+  
+  calcCenterOfGravity();
 }
 
 Simplex::~Simplex()
@@ -66,6 +71,8 @@ void Simplex::sort()
       d_values[best] = tv;
     }
   }
+  
+  calcCenterOfGravity();
 }
 
 size_t Simplex::position(double val) const
@@ -76,15 +83,61 @@ size_t Simplex::position(double val) const
   return pos;
 }
 
-size_t Simplex::insert(Point const &point)
+size_t Simplex::constructProposal(double coeff)
 {
-  double value = d_ranmat.kolmogorov(point);
-  size_t pos = position(value);
-  if (pos <= *d_values[d_dim - 1])
+  construct(coeff);
+  d_propValue = d_comp.kolmogorov(d_proposed);
+  return position(d_propValue);
+}
+
+bool Simplex::improveProposal(double coeff)
+{
+  Point oldProp = d_proposal;
+  double oldVal = d_propValue;
+  
+  construct(coeff);
+  d_propValue = d_comp.kolmogorov(d_proposed);
+  
+  if (d_oldVal < d_propValue)
   {
-    *d_values[d_dim - 1] = value;
-    *d_points[d_dim - 1] = point;
-    sort();
+    d_proposal = oldProp;
+    d_propValue = oldval;
+    return false;
   }
-  return pos;
+  return true;
+}
+
+void Simplex::acceptProposal()
+{
+  *d_values[d_dim - 1] = d_propValue;
+  *d_points[d_dim - 1] = d_proposed;
+  sort();
+  calcCenterOfGravity(); // Might be often redundant, but it's cheap
+}
+
+void Simplex::calcCenterOfGravity()
+{
+  std::fill_n(d_cog.coord, 5, 0.0);
+  for (size_t idx = 0; idx < d_dim - 1; ++idx)
+    d_cog += *d_points[idx];
+  d_cog *= (1.0 / (d_dim - 1));
+}
+
+void Simplex::construct(double coeff) const
+{
+  d_proposed  = d_cog;
+  d_proposed -= d_simplex[d_dim - 1];
+  d_proposed *= coeff;
+  d_proposed += d_cog;
+}
+
+void Simplex::reduceSimplex(double coeff)
+{
+  for (size_t idx = 1; idx < d_dim; ++idx)
+  {
+    *d_points[idx] -= *d_points[0];
+    *d_points[idx] *= d_sigma;
+    *d_points[idx] += *d_points[0];
+    *d_values[idx] = d_comp.kolmogorov(*d_points[idx]);
+  }
 }
