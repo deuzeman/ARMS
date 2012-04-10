@@ -2,7 +2,7 @@
 
 #include <string>
 #include <sstream>
-#include <Point/Point.h>
+#include <Point.h>
 
 class XLat
 {

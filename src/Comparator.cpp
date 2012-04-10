@@ -1,5 +1,5 @@
-#include <algorithm.h>
-#include <numeric.h>
+#include <algorithm>
+#include <numeric>
 #include <Comparator.h>
 
 double Comparator::kolmogorov(Point const &point)

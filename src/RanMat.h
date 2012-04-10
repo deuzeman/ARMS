@@ -5,10 +5,10 @@
 #include <ctime>
 #include <mpi.h>
 
-#include <Data/Data.h>
+#include <Data.h>
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
-#include <Point/Point.h>
+#include <Point.h>
 #include <Random/stocc.h>
 
 class RanMat

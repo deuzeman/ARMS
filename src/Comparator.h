@@ -17,7 +17,7 @@ class Comparator
   size_t  d_eigs;
   int     d_minEv;
  
-  double  d_relprec
+  double  d_relprec;
   size_t  d_blocks;
   
   int     d_rank;
@@ -43,8 +43,8 @@ inline Comparator::Comparator(Data &data, RanMat &ranmat)
   d_relprec(1.0e-4), 
   d_blocks(50)
 {
-  MPI_Get_rank(&d_rank, MPI_COMM_WORLD);
-  MPI_Comm_size(&d_nodes, MPI_COMM_WORLD);
+  MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &d_nodes);
 }
 
 

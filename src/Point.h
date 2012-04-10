@@ -12,7 +12,7 @@ struct Point
   Point &operator+=(Point const &other);
   Point &operator-=(Point const &other);
   Point &operator*=(Point const &other);
-}  
+};
 
 inline Point::Point(Point const &other)
 {
