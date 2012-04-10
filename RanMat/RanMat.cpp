@@ -9,7 +9,7 @@ d_eigMin(eigToIndex(eigMin)), d_numEigs(eigMax - eigMin), d_rstream(0),
 d_Z(MCD::Zero(2 * d_N + d_nu, 2 * d_N + d_nu)),
 d_gamma_5(MCD::Zero(2 * d_N + d_nu, 2 * d_N + d_nu)),
 d_A(d_N + d_nu, d_N + d_nu), d_B(d_N, d_N), d_W(d_N + d_nu, d_N),
-d_slv(2 * d_N + d_nu), d_result(0), d_resultDiscrete(0), d_isDiscretized(false)
+d_slv(2 * d_N + d_nu), d_result(0)
 {
   if ((eigMax - eigMin) < 0)
   {
@@ -37,10 +37,9 @@ d_slv(2 * d_N + d_nu), d_result(0), d_resultDiscrete(0), d_isDiscretized(false)
 RanMat::~RanMat()
 {
   delete[] d_result;
-  delete[] d_resultDiscrete;
 }
 
-void RanMat::calculate(Point const &params, size_t iter, bool const extend)
+void RanMat::calculate(Point const &params, size_t iter)
 {
   double const static sqrt1_2 = std::sqrt(2) / 2.0;
   double const static sqrt8   = std::sqrt(8);
@@ -53,18 +52,12 @@ void RanMat::calculate(Point const &params, size_t iter, bool const extend)
   
   iter = (iter / d_nodes) + 1; // Spread the workload 
   iter = ((iter - 1) / 50 + 1) * 50; // Round up to multiples of 50 for jackknife convenience
-  
-  size_t offset = extend ? d_samples : 0;
-  
-  double *tmp = new double[iter + offset];
-  if (extend && d_result)
-    for (size_t eig = 0; eig < d_numEigs; ++eig)
-      std::copy(d_result + eig * d_samples, d_result + (eig + 1) * d_samples, tmp + eig * (d_samples + iter));
+
   delete[] d_result;
-  d_result = tmp;
-  d_samples = iter + offset;
+  d_result = new double[iter];
+  d_samples = iter;
   
-  for (size_t ctr = offset; ctr < offset + iter; ++ctr)
+  for (size_t ctr = offset; ctr < d_samples; ++ctr)
   {
     // Initialize block A
     for (int x = 0; x < d_N + d_nu; ++x)
@@ -88,17 +81,17 @@ void RanMat::calculate(Point const &params, size_t iter, bool const extend)
     double mfac = d_rstream.Normal(m, a6);
     double ifac = d_rstream.Normal(0.0, a7);
     d_Z += mfac * d_gamma_5 + ifac * MCD::Identity(2 * d_N + d_nu, 2 * d_N + d_nu);
+    
+    // Compute the eigenvalues and copy the relevant section to the result array
     d_slv.compute(d_Z, Eigen::EigenvaluesOnly);
     for (size_t eig = 0; eig < d_numEigs; ++eig)
-      d_result[eig * (offset + iter) + ctr] = ((2 * d_N + d_nu) / sigma) * d_slv.eigenvalues().coeff(d_eigMin + eig);
+      d_result[eig * d_samples + ctr] = ((2 * d_N + d_nu) / sigma) * d_slv.eigenvalues().coeff(d_eigMin + eig);
   }
-  d_isDiscretized = false;
 }
 
 size_t *RanMat::discretize(double const *breaks, int eigMin, size_t const levels, size_t const eigs) const
 {
-  delete[] d_resultDiscrete;
-  d_resultDiscrete = new size_t[d_samples * eigs];
+  resDiscrete = new size_t[d_samples * eigs];
   size_t startCol = eigToIndex(eigMin);
   if ((startCol < d_eigMin) || ((startCol + eigs) > (d_eigMin + d_numEigs)))
     exit(1);
@@ -110,68 +103,7 @@ size_t *RanMat::discretize(double const *breaks, int eigMin, size_t const levels
       size_t idx = 0;
       while ((idx < levels) && (val > breaks[col * levels + idx]))
         ++idx;
-      d_resultDiscrete[col * d_samples + row] = idx;
+      resDiscrete[col * d_samples + row] = idx;
     }
-    d_isDiscretized = true;
-  return d_resultDiscrete;
-}
-
-void kolmogorov(StatVal *kol, RanMat const &sim, Data const &data)
-{ 
-  size_t const blocks = 50;
-  double *breaks = data.flatPerColumn();
-  size_t levels = data.numSamples();
-  size_t samples = sim.numSamples();
-  size_t eigs = data.numCols();
-  size_t const *dres = sim.discretize(breaks, data.minEv(), levels, eigs);
-  
-  double const contrib = 1.0 / (samples * sim.nodes());
-  double const inc = 1.0 / levels;
-  
-  double *fullCum = new double[(levels + 1) * eigs];
-  double *jackCum = new double[(levels + 1) * eigs];
-  double *jackRes = new double[blocks];
-  
-  std::fill_n(fullCum, levels * eigs, 0.0);
-  for (size_t col = 0; col < eigs; ++col)
-    for (size_t row = 0; row < samples; ++row)
-      fullCum[col * levels + dres[col * samples + row]] += contrib;
-
-  size_t const blockSize = samples / blocks; // Should be enforced as a multiple of 50 per node
-  double const rescale = static_cast< double >(blocks) / (blocks - 1);
-  for (size_t blockIdx = 0; blockIdx < blocks; ++blockIdx)
-  {
-    std::copy(fullCum, fullCum + (levels + 1) * eigs, jackCum);
-    for (size_t col = 0; col < eigs; ++col)
-      for (size_t row = blockIdx * blockSize; row < (blockIdx + 1) * blockSize; ++row)
-        jackCum[col * levels + dres[col * samples + row]] -= contrib; // Substract this sample!
-    for (size_t col = 0; col < eigs; ++col)
-      for (size_t row = 1; row < levels; ++row)
-        jackCum[col * levels + row] *= rescale;
-    MPI_Allreduce(MPI_IN_PLACE, jackCum, (levels + 1) * eigs * sim.nodes(),  MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    jackRes[blockIdx] = 0.0;
-    for (size_t col = 0; col < eigs; ++col)
-      for (size_t row = 1; row < levels; ++row)
-        jackRes[blockIdx] = std::max(jackRes[blockIdx], std::abs(jackCum[col * (levels + 1) + row] - col * inc));
-  }
-   
-  // Create the global cumulant for fullCum
-  for (size_t col = 0; col < eigs; ++col)
-    for (size_t row = 1; row < levels; ++row)
-      fullCum[col * levels + row] += fullCum[col * levels + row - 1];
-  MPI_Allreduce(MPI_IN_PLACE, fullCum, samples * sim.nodes(),  MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  
-  kol->value = 0.0;
-  for (size_t col = 0; col < eigs; ++col)
-    for (size_t row = 1; row < levels; ++row)
-      kol->value = std::max(kol->value, std::abs(fullCum[col * (levels + 1) + row] - col * inc));
-  
-  for (size_t idx = 0; idx < blocks; ++idx)
-    kol->error += (jackRes[idx] - kol->value) * (jackRes[idx] - kol->value);
-  kol->error /= rescale;
-  
-  delete[] breaks;
-  delete[] fullCum;
-  delete[] jackCum;
-  delete[] jackRes;
+    return resDiscrete;
 }

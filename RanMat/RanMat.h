@@ -11,13 +11,6 @@
 #include <Point/Point.h>
 #include <Random/stocc.h>
 
-
-struct StatVal
-{
-  double value;
-  double error;
-};
-
 class RanMat
 {
   public:
@@ -50,30 +43,24 @@ class RanMat
     Eigen::SelfAdjointEigenSolver< MCD > d_slv;
     
     double *d_result;
-    mutable size_t *d_resultDiscrete;
-    mutable bool d_isDiscretized;
 
   public:
     RanMat(size_t const N, size_t const nu, int const eigMin, int const eigMax);
     ~RanMat();
 
-    void calculate(Point const &params, size_t iter, bool const extend = false);
+    void calculate(Point const &params, size_t iter);
     size_t *discretize(double const *breaks, int eigMin, size_t const levels, size_t const eigs) const;
 
     size_t eigToIndex(int eig) const;
     
     double const *result() const;
-    size_t const *resultDiscrete() const;
     size_t const &numEigs() const;
     size_t const &eigMin() const;
     size_t const &numSamples() const;
     int const &nodes() const;
     size_t const &N() const;
     size_t const &nu() const;
-    bool const &isDiscretized() const;
 };
-
-void kolmogorov(StatVal *kol, RanMat const &sim, Data const &data);
 
 inline int const &RanMat::nodes() const
 {
@@ -85,19 +72,9 @@ inline double const *RanMat::result() const
   return d_result;
 }
 
-inline size_t const *RanMat::resultDiscrete() const
-{
-  return d_resultDiscrete;
-}
-
 inline size_t RanMat::eigToIndex(int eig) const
 {
   return (eig > 0) ? (d_N + eig - 1) : (d_N + eig);
-}
-
-inline bool const &RanMat::isDiscretized() const
-{
-  return d_isDiscretized;
 }
 
 inline size_t const &RanMat::numEigs() const
