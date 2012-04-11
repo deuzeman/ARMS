@@ -1,4 +1,7 @@
-#include <Point/Point.h>
+#include <Point.h>
+
+Point::Point()
+{}
 
 Point::Point(double sigma, double m, double a6, double a7, double a8)
 {
@@ -19,7 +22,7 @@ Point &Point::operator+=(Point const &other)
 Point &Point::operator-=(Point const &other)
 {
   for (size_t idx = 0; idx < 5; ++idx)
-    coord[idx] += other.coord[idx];
+    coord[idx] -= other.coord[idx];
   return *this;
 }
 
@@ -34,5 +37,12 @@ Point &Point::operator/=(double fac)
 {
   for (size_t idx = 0; idx < 5; ++idx)
     coord[idx] /= fac;
+  return *this;
+}
+
+Point &Point::operator=(Point const &other)
+{
+  if (&other != this)
+    std::copy(other.coord, other.coord + 5, coord); 
   return *this;
 }

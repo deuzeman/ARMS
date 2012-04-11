@@ -1,268 +1,156 @@
 #include <fstream>
-#include <iostream>
 #include <mpi.h>
 #include <sstream>
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include <Params.h>
+#include <Log.h>
 
-void Params::parseInput(char const *filename)
+// This is as good a point as any to set up the mapping in point!
+//   coord[0] = sigma
+//   coord[1] = m
+//   coord[2] = a6
+//   coord[3] = a7
+//   coord[4] = a8
+
+static void cleanLine(std::string &line, char const *buff)
 {
-  std::ifstream input(filename);
-  char line[256];
-
-  while(input.getline(line, 256))
+  char clBuff[256];
+  char *cpb = clBuff;
+  
+  bool before = true;
+  bool clear = true;
+  for (char const *pb = buff; *pb != '\0'; ++pb)
   {
-    std::string sline(line);
-
-    if (sline.find("N = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      N = XLat(sline.c_str() + idx + 2);
+    if (clear && ((*pb == '\t' ) || (*pb == '\n' ) || (*pb == ' ' )))
       continue;
-    }
 
-    if (sline.find("nu = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      nu = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("m = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      m = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("a6 = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      a6 = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("a7 = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      a7 = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("a8 = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      a8 = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("sigma = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      sigma = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("nEig_min = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      nEig_min = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("nEig_max = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      nEig_max = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("output = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      output = (sline.c_str() + idx + 2);
-      continue;
-    }
+    if (!before)
+      clear = false;
+    
+    if (*pb == '=')
+      before = false;
+    
+    *cpb = *pb;
+    ++cpb;
   }
+  *cpb = '\0';
+  line.assign(clBuff);
 }
 
-void FitParams::parseInput(char const *filename)
+Params::Params(char const *filename)
 {
-  std::ifstream input(filename);
+  int nodes;
+  int rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &nodes);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  std::ifstream input;
   char line[256];
-
-  while(input.getline(line, 256))
+  std::string sline;
+  
+  if (rank == 0)
   {
-    std::string sline(line);
-
-    if (sline.find("data = ") != sline.npos)
+    input.open(filename, std::ifstream::in);
+  
+    while(input.getline(line, 256))
     {
-      size_t idx = sline.find("=");
-      std::stringstream sst(sline.c_str() + idx + 2);
-      sst >> data;
-      continue;
-    }
+       cleanLine(sline, line);
 
-    if (sline.find("N = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      N = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
+      if (sline.find("N=") != sline.npos)
+      {
+        N = XLat(sline.c_str() + 2);
+        continue;
+      }
 
-    if (sline.find("nu = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      nu = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
+      if (sline.find("nu=") != sline.npos)
+      {
+        nu = XLat(sline.c_str() + 3);
+        continue;
+      }
 
-    if (sline.find("m = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      m[0] = istr;
-      m[1] = istr;
-      continue;
-    }
+      if (sline.find("sigma=") != sline.npos)
+      {
+        XLat sigma(sline.c_str() + 6);
+        center.coord[0] = sigma;
+        scale.coord[0] = sigma;
+        continue;
+      }
 
-    if (sline.find("a6 = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      a6[0] = istr;
-      a6[1] = istr;
-      continue;
-    }
+      if (sline.find("m=") != sline.npos)
+      {
+        XLat mass(sline.c_str() + 2);
+        center.coord[1] = mass;
+        scale.coord[1] = mass;
+        continue;
+      }
+      
+      if (sline.find("a6=") != sline.npos)
+      {
+        XLat a6(sline.c_str() + 3);
+        center.coord[2] = a6;
+        scale.coord[2] = a6;
+        continue;
+      }
+      
+      if (sline.find("a7=") != sline.npos)
+      {
+        XLat a7(sline.c_str() +3);
+        center.coord[3] = a7;
+        scale.coord[3] = a7;
+        continue;
+      }
 
-    if (sline.find("a7 = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      a7[0] = istr;
-      a7[1] = istr;
-      continue;
-    }
+      if (sline.find("a8=") != sline.npos)
+      {
+        XLat a8(sline.c_str() + 3);
+        center.coord[4] = a8;
+        scale.coord[4] = a8;
+        continue;
+      }
+      
+      if (sline.find("data=") != sline.npos)
+      {
+        data.assign(sline.c_str() + 5);
+        continue;
+      }
 
-    if (sline.find("a8 = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      a8[0] = istr;
-      a8[1] = istr;
-      continue;
-    }
-
-    if (sline.find("sigma = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      sigma[0] = istr;
-      sigma[1] = istr;
-      continue;
+      if (sline.find("output=") != sline.npos)
+      {
+        output.assign(sline.c_str() + 7);
+        continue;
+      }
+      
+      if (sline.find("prec=") != sline.npos)
+      {
+        XLat precis(sline.c_str() + 5);
+        prec = precis;
+        continue;
+      }      
     }
   }
-}
 
-void FitParams::parseInputParallel(char const *filename)
-{
-  int mpirank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &mpirank);
-
-  // Broken LUSTRE forces us to use POSIX, then broadcast
-  unsigned long int filesize = 0;
-  if (mpirank == 0)
+  // Now work through the whole parameters struct and broadcast everything
+  if (rank == 0)
   {
-    struct stat filestatus;
-    stat(filename, &filestatus);
-    filesize = filestatus.st_size;
+    std::copy(data.c_str(), data.c_str() + data.length(), line);
+    line[data.length()] = '\0';
   }
-  MPI_Bcast(&filesize, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+  MPI_Bcast(line, data.length() + 1, MPI_CHAR, 0, MPI_COMM_WORLD);
+  if (rank != 0)
+    data.assign(line);
 
-  char *buffer = new char[filesize + 1]; // To avoid weirdness, assign a little extra memory
-
-  if (mpirank == 0)
+  if (rank == 0)
   {
-    std::ifstream instream(filename);
-    instream.read(buffer, filesize);
-    instream.close();
+    std::copy(output.c_str(), output.c_str() + output.length(), line);
+    line[output.length()] = '\0';
   }
-
-  MPI_Bcast(buffer, filesize, MPI_CHAR, 0, MPI_COMM_WORLD);
-  buffer[filesize] = '\0'; // For security reasons, don't know if it's really needed, can't hurt.
-
-  std::istringstream input(buffer);
-  char line[256];
-  // Should be business as usual from here on!
-  while(input.getline(line, 256))
-  {
-    std::string sline(line);
-
-    if (sline.find("data = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      std::stringstream sst(sline.c_str() + idx + 2);
-      sst >> data;
-      continue;
-    }
-
-    if (sline.find("N = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      N = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("nu = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      nu = XLat(sline.c_str() + idx + 2);
-      continue;
-    }
-
-    if (sline.find("m = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      p.m = istr;
-      continue;
-    }
-
-    if (sline.find("a6 = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      p.a6 = istr;
-      continue;
-    }
-
-    if (sline.find("a7 = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      p.a7 = istr;
-      continue;
-    }
-
-    if (sline.find("a8 = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      p.a8 = istr;
-      continue;
-    }
-
-    if (sline.find("sigma = ") != sline.npos)
-    {
-      size_t idx = sline.find("=");
-      XLat istr(sline.c_str() + idx + 2);
-      p.sigma = istr;
-      continue;
-    }
-  }
-  delete[] buffer;
+  MPI_Bcast(line, output.length() + 1, MPI_CHAR, 0, MPI_COMM_WORLD);
+  if (rank != 0)
+    output.assign(line);
+  
+  MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&nu, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(center.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(scale.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&prec, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 }

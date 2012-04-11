@@ -20,14 +20,17 @@ int main(int argc, char **argv)
       std::cerr << "# RMFIT MPI v4.0\n"
 		<< "Need an input file!\n" 
 		<< "This file should contain the following lines (... indicate input values):\n\n"
-		<< "data = ...\n"
-		<< "N = ...\n"
-		<< "nu = ...\n"
-		<< "m = ...\n"
-		<< "a6 = ...\n"
-		<< "a7 = ...\n"
-		<< "a8 = ...\n"
-		<< "sigma = ...\n"
+		<< "N      = ...\n"
+		<< "nu     = ...\n"
+                << "sigma  = ... ...\n"
+                << "m      = ... ...\n"
+                << "a6     = ... ...\n"
+                << "a7     = ... ...\n"
+                << "a8     = ... ...\n"
+                << "prec   = ...\n"
+                << "data   = ...\n"
+                << "output = ...\n\n"
+                << "Double arguments for the parameters give the best guess (first) and scale (second)\n"
 		<< "The name of this input file should be the only argument.\n"
 		<< "Now exiting." << std::endl;
     }
@@ -35,34 +38,33 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  FitParams params(argv[1], true); // Reads in parallel
-  Data data(params.data.c_str(), params.bootSeed, true); // Reads in parallel
-   
-  Minim *minim = new Minim(&data, &params);
-  Simplex const &result = minim->reduce();
+  Params params(argv[1]);
   
   if (myRank == 0)
   {
-    std::cout << "Obtained the following result:\n"
-              << "Values for D: " << result.values[0].value << ' ' << result.values[1].value << ' ' 
-                                  << result.values[2].value << ' ' << result.values[3].value << ' '
-                                  << result.values[4].value << ' ' << result.values[5].value << '\n'
-              << "Values for sigma: " << result.points[0].sigma << ' ' << result.points[1].sigma << ' ' 
-                                  << result.points[2].sigma << ' ' << result.points[3].sigma << ' '
-                                  << result.points[4].sigma << ' ' << result.points[5].sigma << '\n'
-              << "Values for m: " << result.points[0].m << ' ' << result.points[1].m << ' ' 
-                                  << result.points[2].m << ' ' << result.points[3].m << ' '
-                                  << result.points[4].m << ' ' << result.points[5].m << '\n'
-              << "Values for a6: " << result.points[0].a6 << ' ' << result.points[1].a6 << ' ' 
-                                  << result.points[2].a6 << ' ' << result.points[3].a6 << ' '
-                                  << result.points[4].a6 << ' ' << result.points[5].a6 << '\n'
-              << "Values for a7: " << result.points[0].a7 << ' ' << result.points[1].a7 << ' ' 
-                                  << result.points[2].a7 << ' ' << result.points[3].a7 << ' '
-                                  << result.points[4].a7 << ' ' << result.points[5].a7 << '\n'
-              << "Values for a8: " << result.points[0].a8 << ' ' << result.points[1].a8 << ' ' 
-                                  << result.points[2].a8 << ' ' << result.points[3].a8 << ' '
+    Log::open(params.output.c_str());
+    log() << "# RMFIT MPI v4.0\n"
+          << "Parameters provided:\n"
+          << "  N      = " << params.N << '\n'
+          << "  nu     = " << params.nu << '\n'
+          << "  sigma  = " << params.center.coord[0] << '\t' << params.scale.coord[0] << '\n'
+          << "  m      = " << params.center.coord[1] << '\t' << params.scale.coord[1] << '\n'
+          << "  a6     = " << params.center.coord[2] << '\t' << params.scale.coord[2] << '\n'
+          << "  a7     = " << params.center.coord[3] << '\t' << params.scale.coord[3] << '\n'
+          << "  a8     = " << params.center.coord[4] << '\t' << params.scale.coord[4] << '\n'
+          << "  prec   = " << params.prec << '\n'
+          << "  data   = " << params.data << '\n'
+          << "  output = " << params.output << '\n' << std::endl;
   }
-  delete minim;
+  
+  Data data(params.data.c_str());
+  Minim minim(data, params);
+
+  Simplex const &result = minim.reduce();
+  
+  if (myRank == 0)
+    Log::shut();
+  
   MPI_Finalize();
   return 0;
 }

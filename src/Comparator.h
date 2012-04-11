@@ -3,13 +3,15 @@
 #include <mpi.h>
 
 #include <Data.h>
+#include <Log.h>
+#include <Params.h>
 #include <Point.h>
 #include <RanMat.h>
 
 
 class Comparator
 {
-  RanMat &d_ranmat;
+  RanMat  d_ranmat;
   
   double *d_breaks;
   size_t  d_levels;
@@ -24,7 +26,7 @@ class Comparator
   int     d_nodes;
   
   public:
-    Comparator(Data &data, RanMat &ranmat);
+    Comparator(Data &data, Params &params);
     void setPrecision(double relprec);
     void setBlocks(size_t blocks);
     
@@ -33,8 +35,8 @@ class Comparator
     size_t roundToBlocks(size_t in) const;
 };
 
-inline Comparator::Comparator(Data &data, RanMat &ranmat)
-: d_ranmat(ranmat), 
+inline Comparator::Comparator(Data &data, Params &params)
+: d_ranmat(params.N, params.nu, data.minEv(), data.maxEv()), 
   d_breaks(data.flatPerColumn()), 
   d_levels(data.numSamples()), 
   d_inc(1.0 / d_levels), 
@@ -61,5 +63,5 @@ inline void Comparator::setBlocks(size_t blocks)
 inline size_t Comparator::roundToBlocks(size_t in) const
 {
   // Give an alignment such that we always have a multiple of blocks samples per node.
-  return ((((in - 1) / (d_blocks * d_nodes)) + 1) * (d_blocks * d_nodes));
+  return ((((static_cast< int >(in) - 1) / (d_blocks * d_nodes)) + 1) * (d_blocks * d_nodes));
 }

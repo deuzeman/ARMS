@@ -10,32 +10,20 @@
 
 class Data
 {
-  enum current
-  {
-    NONE,
-    AVE,
-    RAT,
-    CUM
-  };
-
   int d_minEv;
   int d_maxEv;
   size_t d_nSamp;
-  int d_bootSeed;
 
   Eigen::ArrayXXd d_data;
   double d_normalization;
 
-  current mutable d_cur;
-
-  void bootstrap(size_t const nBoot, Eigen::ArrayXXd const &data) const;
-
-  Eigen::ArrayXXd mutable d_summary;
+  Eigen::ArrayXd  d_average;
+  Eigen::ArrayXXd d_cumulant;
 
   public:
-    Data(char const *filename, int bootSeed = 0, bool const parallel = false);
+    Data(char const *filename);
 
-    Eigen::ArrayXXd const &average(size_t const nBoot) const;
+    Eigen::ArrayXd const &average() const;
     Eigen::ArrayXXd const &cumulant() const;
 
     int minEv() const;
@@ -69,11 +57,6 @@ inline size_t Data::numSamples() const
 inline size_t Data::numCols() const
 {
   return d_data.cols();
-}
-
-inline int Data::bootSeed() const
-{
-  return d_bootSeed;
 }
 
 inline double Data::normalization() const

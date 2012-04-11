@@ -3,9 +3,8 @@ project (ARMS)
 
 set (ARMS_VERSION_MAJOR 4)
 set (ARMS_VERSION_MINOR 0)
-set (CMAKE_CXX_COMPILER mpicc)
+set (CMAKE_CXX_COMPILER mpicxx)
 set (CMAKE_CXX_COMPILE_FLAGS -O3 -march=native)
-set (CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS})
 
 include_directories ("${PROJECT_SOURCE_DIR}")
 include_directories ("${PROJECT_SOURCE_DIR}/src")

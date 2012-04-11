@@ -1,11 +1,11 @@
-#include <Minim/Minim.h>
+#include <Minim.h>
+#include <Log.h>
 
 Simplex const &Minim::reduce()
-{  
-  size_t ranking[6];
+{
+  log() << "Starting minimization routine!\n" << d_simplex;
   for (size_t iter = 0; iter < 500; ++iter)
   {
-    // Now ranking contains an ordered array of the solution, ranking[0] the best, ranking[5] the worst
     // Check if this is already a solution to the problem
     if (d_simplex.converged())
       break;
@@ -33,7 +33,7 @@ Simplex const &Minim::reduce()
     // At this point, we contract and don't care about the old proposal either way.
     
     loc = d_simplex.constructProposal(d_rho); // Contract
-    if (loc > d_dim);
+    if (loc > d_simplex.dimension());
     {
       d_simplex.acceptProposal();
       continue; // i.e. the contracted point is an improvement, so we continue on
