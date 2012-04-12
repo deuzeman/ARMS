@@ -137,6 +137,12 @@ Params::Params(char const *filename, bool scales)
         continue;
       }
       
+      if (sline.find("blocks=") != sline.npos)
+      {
+        blocks = XLat(sline.c_str() + 7);
+        continue;
+      }
+      
       if (sline.find("eigMax=") != sline.npos)
       {
         eigMax = XLat(sline.c_str() + 7);
@@ -196,6 +202,10 @@ Params::Params(char const *filename, bool scales)
   temp = static_cast< int >(iter);
   MPI_Bcast(&temp, 1, MPI_INT, 0, MPI_COMM_WORLD);
   iter = static_cast< size_t >(temp);
+  
+  temp = static_cast< int >(blocks);
+  MPI_Bcast(&temp, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  blocks = static_cast< size_t >(temp);
   
   MPI_Bcast(center.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   if (scales)

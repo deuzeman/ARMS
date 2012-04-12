@@ -27,6 +27,7 @@ int main(int argc, char **argv)
                 << "a6     = ... ...\n"
                 << "a7     = ... ...\n"
                 << "a8     = ... ...\n"
+                << "blocks = ...\n"
                 << "prec   = ...\n"
                 << "data   = ...\n"
                 << "output = ...\n\n"
@@ -38,7 +39,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  Params params(argv[1]);
+  Params params(argv[1], true);
   
   if (myRank == 0)
   {
@@ -52,6 +53,7 @@ int main(int argc, char **argv)
           << "  a6     = " << params.center.coord[2] << '\t' << params.scale.coord[2] << '\n'
           << "  a7     = " << params.center.coord[3] << '\t' << params.scale.coord[3] << '\n'
           << "  a8     = " << params.center.coord[4] << '\t' << params.scale.coord[4] << '\n'
+          << "  blocks = " << params.blocks << '\n'
           << "  prec   = " << params.prec << '\n'
           << "  data   = " << params.data << '\n'
           << "  output = " << params.output << '\n' << std::endl;

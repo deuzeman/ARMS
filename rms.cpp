@@ -19,7 +19,7 @@ int main(int argc, char **argv)
   {
     if (myRank == 0)
     {
-      std::cerr << "# ARMS MPI v4.0\n"
+      std::cerr << "# RMS MPI v4.0\n"
       << "Need an input file!\n" 
       << "This file should contain the following lines (... indicate input values):\n\n"
       << "N      = ...\n"
@@ -46,7 +46,7 @@ int main(int argc, char **argv)
   if (myRank == 0)
   {
     Log::open(params.output.c_str());
-    log() << "# ARMS MPI v4.0\n"
+    log() << "# RMS MPI v4.0\n"
     << "# Parameters provided:\n"
     << "#   N      = " << params.N << '\n'
     << "#   nu     = " << params.nu << '\n'

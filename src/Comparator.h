@@ -3,11 +3,11 @@
 #include <mpi.h>
 
 #include <Data.h>
+#include <Discretizer.h>
 #include <Log.h>
 #include <Params.h>
 #include <Point.h>
 #include <RanMat.h>
-
 
 class Comparator
 {
@@ -25,40 +25,18 @@ class Comparator
   int     d_rank;
   int     d_nodes;
   
+  // The following provides scratch space
+  Discretizer d_disc;
+  double *d_jack;  
+  
   public:
     Comparator(Data &data, Params &params);
-    void setPrecision(double relprec);
-    void setBlocks(size_t blocks);
+    ~Comparator();
     
     double kolmogorov(Point const &point);
     
     size_t roundToBlocks(size_t in) const;
 };
-
-inline Comparator::Comparator(Data &data, Params &params)
-: d_ranmat(params.N, params.nu, data.minEv(), data.maxEv()), 
-  d_breaks(data.flatPerColumn()), 
-  d_levels(data.numSamples()), 
-  d_inc(1.0 / d_levels), 
-  d_eigs(data.numCols()), 
-  d_minEv(data.minEv()),
-  d_relprec(1.0e-4), 
-  d_blocks(50)
-{
-  MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &d_nodes);
-}
-
-
-inline void Comparator::setPrecision(double relprec)
-{
-  d_relprec = relprec;
-}
-
-inline void Comparator::setBlocks(size_t blocks)
-{
-  d_blocks = blocks;
-}
 
 inline size_t Comparator::roundToBlocks(size_t in) const
 {

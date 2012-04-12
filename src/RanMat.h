@@ -42,6 +42,8 @@ class RanMat
 
     Eigen::SelfAdjointEigenSolver< MCD > d_slv;
     
+    double *d_result;
+    
   public:
     RanMat(size_t const N, size_t const nu, int const eigMin, int const eigMax);
     ~RanMat();
@@ -60,7 +62,6 @@ class RanMat
     size_t const &nu() const;
     
     double const *result() const;
-    double *d_result;
 };
 
 inline int const &RanMat::nodes() const

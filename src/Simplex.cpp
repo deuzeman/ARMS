@@ -34,13 +34,13 @@ Simplex::Simplex(Data &data, Params &params)
   // We want our values precise enough, so let's request things an order or magnitude
   // better than we would like this minimization to be.
   log() << "Calculating associated values.\n" << std::endl;
-  d_comp.setPrecision(0.1 * d_prec);
   d_values = new double*[d_dim];
   for (size_t idx = 0; idx < d_dim; ++idx)
   {
     d_values[idx] = new double;
     *d_values[idx] = d_comp.kolmogorov(*d_points[idx]);
   }
+  sort();
   log() << "Ordered simplex ready!\n" << *this;
   calcCenterOfGravity();
 }
@@ -80,14 +80,14 @@ void Simplex::sort()
       d_values[best] = tv;
     }
   }
-  
+ 
   calcCenterOfGravity();
 }
 
 size_t Simplex::position(double val) const
 {
   size_t pos = 0;
-  while ((*d_values[pos] < val) && (val < d_dim))
+  while ((pos < d_dim) && (*d_values[pos] < val))
     ++pos;
   return pos;
 }

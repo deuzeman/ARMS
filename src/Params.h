@@ -36,6 +36,7 @@ struct Params
   Point scale;
   
   double prec;
+  size_t blocks;
   
   int eigMin;
   int eigMax;
