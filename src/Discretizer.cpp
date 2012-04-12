@@ -81,7 +81,19 @@ void Discretizer::calculate(RanMat const &ranmat)
         pc[lev] += d_block[(bIdx * d_numEigs + eig) * d_levels + lev];
       }
     }
-    std::cerr << "[DEBUG] Final value in cumulative distribution: " << pc[d_levels - 1] << " (should be 1)." << std::endl;
+    if (eig == 4)
+    {
+      std::cout << "===================" << std::endl;
+      for (size_t idx = 0; idx < d_levels; ++idx)
+      {
+	if (idx == 0)
+	  std::cout << 0.0;
+	else
+	  std::cout << d_breaks[eig * (d_levels - 1) + idx];
+	std::cout << "  " << pc[idx] << std::endl;
+      }
+      std::cout << "===================" << std::endl;
+    }
   }
 }
 

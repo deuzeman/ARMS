@@ -21,7 +21,7 @@ d_jack(new double[d_blocks])
 
 double Comparator::kolmogorov(Point const &point)
 {
-  log() << "Calculating Kolmogorov-Smirnov D for " << point << std::endl;
+  log() << "  >>  Calculating Kolmogorov-Smirnov D for " << point << std::endl;
   
   // Set up some data structure for the algorithms
   double error = 1.0;
@@ -34,7 +34,7 @@ double Comparator::kolmogorov(Point const &point)
   d_disc.clear();
   while (error > d_relprec)
   {
-    log() << "Requesting " << needed << " samples." << std::endl;
+    log() << "  >>  Requesting " << needed << " samples." << std::endl;
     // Calculate as much data as we think we will require
     d_ranmat.calculate(point, needed);
     samples += needed;
@@ -66,9 +66,9 @@ double Comparator::kolmogorov(Point const &point)
     for (size_t idx = 0; idx < d_blocks; ++idx)
       error += (d_jack[idx] - ave) * (d_jack[idx] - ave);
     error *= rescale;
-    log() << "With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;
+    log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;
     error /= result;
-    log() << "That implies a relative error of " << error << '.' << std::endl;
+    log() << "  >>  That implies a relative error of " << error << '.' << std::endl;
 
     
     // We'll add a minimum and maximum number of iterations
@@ -77,7 +77,7 @@ double Comparator::kolmogorov(Point const &point)
     needed = std::min(std::max(roundToBlocks(static_cast< size_t >(std::pow((error / d_relprec), 2.0) * samples)), 
                                              static_cast< size_t >(1000)), static_cast< size_t >(50000));
     if (error < d_relprec)
-      log() << "This is sufficient for the currently needed precision.\n" << std::endl;
+      log() << "  >>  This is sufficient for the currently needed precision.\n" << std::endl;
   }
   
   return result;

@@ -95,6 +95,7 @@ size_t Simplex::position(double val) const
 size_t Simplex::constructProposal(double coeff)
 {
   construct(coeff);
+  log() << "Proposing " << d_proposal << std::endl;
   d_propValue = d_comp.kolmogorov(d_proposal);
   return position(d_propValue);
 }
@@ -105,6 +106,7 @@ bool Simplex::improveProposal(double coeff)
   double oldVal = d_propValue;
   
   construct(coeff);
+  log() << "Proposing " << d_proposal << " as a further improvement." << std::endl;
   d_propValue = d_comp.kolmogorov(d_proposal);
   
   if (oldVal < d_propValue)
@@ -148,6 +150,7 @@ void Simplex::reduceSimplex(double coeff)
     *d_points[idx] -= *d_points[0];
     *d_points[idx] *= coeff;
     *d_points[idx] += *d_points[0];
+    log() << "Reduction of point " << idx << " would produce " << *d_points[idx] << std::endl;
     *d_values[idx] = d_comp.kolmogorov(*d_points[idx]);
   }
 }

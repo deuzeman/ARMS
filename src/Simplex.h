@@ -38,6 +38,8 @@ class Simplex
     double const &value(size_t index) const;
     
     bool converged() const;
+    
+    void writeProposal() const;
   
   private:
     void construct(double coeff);
@@ -74,6 +76,11 @@ inline double const &Simplex::value(size_t index) const
 inline bool Simplex::converged() const
 {
   return (((*d_values[d_dim - 1] - *d_values[0]) / *d_values[0]) < d_prec);
+}
+
+inline void Simplex::writeProposal() const
+{
+  log() << d_proposal << std::endl;
 }
 
 std::ostream &operator<<(std::ostream &out, Simplex const &simplex);
