@@ -122,10 +122,27 @@ Params::Params(char const *filename)
       
       if (sline.find("prec=") != sline.npos)
       {
-        XLat precis(sline.c_str() + 5);
-        prec = precis;
+        prec = XLat(sline.c_str() + 5);
         continue;
       }      
+     
+      if (sline.find("eigMin=") != sline.npos)
+      {
+        eigMin = XLat(sline.c_str() + 7);
+        continue;
+      }
+      
+      if (sline.find("eigMax=") != sline.npos)
+      {
+        eigMax = XLat(sline.c_str() + 7);
+        continue;
+      }
+      
+      if (sline.find("iter=") != sline.npos)
+      {
+        iter = XLat(sline.c_str() + 5);
+        continue;
+      }  
     }
   }
 
@@ -153,4 +170,6 @@ Params::Params(char const *filename)
   MPI_Bcast(center.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(scale.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(&prec, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&eigMin, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&eigMax, 1, MPI_INT, 0, MPI_COMM_WORLD);
 }

@@ -45,15 +45,12 @@ void RanMat::calculate(Point const &params, size_t iter)
   double const static sqrt8   = std::sqrt(8);
   double const static scale2  = d_scale * d_scale;
   double const sigma = params.coord[0];
-  double const m  = params.coord[1] * scale2;
-  double const a6 = params.coord[2] * scale2 * sqrt8;
-  double const a7 = params.coord[3] * scale2 * sqrt8;
-  double const a8 = params.coord[4] * scale2;
+  double const m  = params.coord[1] * scale2 / d_N;
+  double const a6 = params.coord[2] * scale2 * sqrt8 / std::sqrt(d_N);
+  double const a7 = params.coord[3] * scale2 * sqrt8 / std::sqrt(d_N);
+  double const a8 = params.coord[4] * scale2 / std::sqrt(d_N);
   
-  iter = (iter / d_nodes) + 1; // Spread the workload 
-  iter = ((iter - 1) / 50 + 1) * 50; // Round up to multiples of 50 for jackknife convenience
-  
-  d_samples = iter;
+  d_samples = (((iter - 1) / d_nodes) + 1); // Spread the workload, round up for a minimum number of iterations
   
   delete[] d_result;
   d_result = new double[d_numEigs * d_samples];
@@ -86,7 +83,7 @@ void RanMat::calculate(Point const &params, size_t iter)
     // Compute the eigenvalues and copy the relevant section to the result array
     d_slv.compute(d_Z, Eigen::EigenvaluesOnly);
     for (size_t eig = 0; eig < d_numEigs; ++eig)
-      d_result[eig * d_samples + ctr] = ((2 * d_N + d_nu) / sigma) * d_slv.eigenvalues().coeff(d_eigMin + eig);
+      d_result[eig * d_samples + ctr] = sigma * d_slv.eigenvalues().coeff(d_eigMin + eig);
   }
 }
 

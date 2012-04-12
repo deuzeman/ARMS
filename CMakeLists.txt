@@ -12,3 +12,9 @@ include_directories ("/usr/src/linux-headers-2.6.38-8/arch/ia64/include")
 
 add_subdirectory (Random)
 add_subdirectory (src)
+
+add_executable(rms rms.cpp)
+target_link_libraries(rms arms)
+
+add_executable(rmfit rmfit.cpp)
+target_link_libraries(rmfit arms)

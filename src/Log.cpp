@@ -19,6 +19,7 @@ void Log::shut()
   if (s_instance)
     s_instance->close();
   delete Log::s_instance;
+  Log::s_instance = 0;
 }
 
 std::ofstream &Log::put()

@@ -36,6 +36,11 @@ struct Params
   Point scale;
   
   double prec;
+  
+  int eigMin;
+  int eigMax;
+  
+  size_t iter;
 
   Params(char const *filename);
 };
