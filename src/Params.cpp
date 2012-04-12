@@ -37,7 +37,7 @@ static void cleanLine(std::string &line, char const *buff)
   line.assign(clBuff);
 }
 
-Params::Params(char const *filename)
+Params::Params(char const *filename, bool scales)
 {
   int nodes;
   int rank;
@@ -72,7 +72,8 @@ Params::Params(char const *filename)
       {
         XLat sigma(sline.c_str() + 6);
         center.coord[0] = sigma;
-        scale.coord[0] = sigma;
+        if (scales)
+          scale.coord[0] = sigma;
         continue;
       }
 
@@ -80,7 +81,8 @@ Params::Params(char const *filename)
       {
         XLat mass(sline.c_str() + 2);
         center.coord[1] = mass;
-        scale.coord[1] = mass;
+        if (scales)
+          scale.coord[1] = mass;
         continue;
       }
       
@@ -88,7 +90,8 @@ Params::Params(char const *filename)
       {
         XLat a6(sline.c_str() + 3);
         center.coord[2] = a6;
-        scale.coord[2] = a6;
+        if (scales)
+          scale.coord[2] = a6;
         continue;
       }
       
@@ -96,7 +99,8 @@ Params::Params(char const *filename)
       {
         XLat a7(sline.c_str() +3);
         center.coord[3] = a7;
-        scale.coord[3] = a7;
+        if (scales)
+          scale.coord[3] = a7;
         continue;
       }
 
@@ -104,7 +108,8 @@ Params::Params(char const *filename)
       {
         XLat a8(sline.c_str() + 3);
         center.coord[4] = a8;
-        scale.coord[4] = a8;
+        if (scales)
+          scale.coord[4] = a8;
         continue;
       }
       
@@ -146,29 +151,55 @@ Params::Params(char const *filename)
     }
   }
 
-  // Now work through the whole parameters struct and broadcast everything
+  int toCommunicate = 0;
   if (rank == 0)
-  {
-    std::copy(data.c_str(), data.c_str() + data.length(), line);
-    line[data.length()] = '\0';
-  }
-  MPI_Bcast(line, data.length() + 1, MPI_CHAR, 0, MPI_COMM_WORLD);
-  if (rank != 0)
-    data.assign(line);
-
-  if (rank == 0)
-  {
-    std::copy(output.c_str(), output.c_str() + output.length(), line);
-    line[output.length()] = '\0';
-  }
-  MPI_Bcast(line, output.length() + 1, MPI_CHAR, 0, MPI_COMM_WORLD);
-  if (rank != 0)
-    output.assign(line);
+    toCommunicate = data.length();
+  MPI_Bcast(&toCommunicate, 1, MPI_INT, 0, MPI_COMM_WORLD);
   
-  MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&nu, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  // Now work through the whole parameters struct and broadcast everything
+  if (toCommunicate > 0)
+  {
+    if (rank == 0)
+    {
+      std::copy(data.c_str(), data.c_str() + toCommunicate, line);
+      line[toCommunicate] = '\0';
+    }
+    MPI_Bcast(line, toCommunicate + 1, MPI_CHAR, 0, MPI_COMM_WORLD);
+    if (rank != 0)
+      data.assign(line);
+  }
+  
+  if (rank == 0)
+    toCommunicate = output.length();
+  MPI_Bcast(&toCommunicate, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  
+  if (toCommunicate > 0)
+  {
+    if (rank == 0)
+    {
+      std::copy(output.c_str(), output.c_str() + toCommunicate, line);
+      line[toCommunicate] = '\0';
+    }
+    MPI_Bcast(line, toCommunicate + 1, MPI_CHAR, 0, MPI_COMM_WORLD);
+    if (rank != 0)
+      output.assign(line);
+  }
+  
+  int temp = static_cast< int >(N);
+  MPI_Bcast(&temp, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  N = static_cast< size_t >(temp);
+  
+  temp = static_cast< int >(nu);
+  MPI_Bcast(&temp, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  nu = static_cast< size_t >(temp);
+  
+  temp = static_cast< int >(iter);
+  MPI_Bcast(&temp, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  iter = static_cast< size_t >(temp);
+  
   MPI_Bcast(center.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-  MPI_Bcast(scale.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  if (scales)
+    MPI_Bcast(scale.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(&prec, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(&eigMin, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(&eigMax, 1, MPI_INT, 0, MPI_COMM_WORLD);

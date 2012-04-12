@@ -42,5 +42,5 @@ struct Params
   
   size_t iter;
 
-  Params(char const *filename);
+  Params(char const *filename, bool scales = false);
 };
