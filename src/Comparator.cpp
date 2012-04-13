@@ -51,14 +51,12 @@ double Comparator::averages(Point const &point)
         double pred = d_disc.average(eig, blockIdx);
         d_jack[blockIdx] += std::pow(pred - d_aver[eig], 2.0);
       }
-      std::cerr << "Block " << blockIdx << ":  " << d_jack[blockIdx] << std::endl;
     }
     for (size_t eig = 0; eig < d_eigs; ++eig)
     {
       double pred = d_disc.average(eig);
       result += std::pow(pred - d_aver[eig], 2.0);
     }
-    std::cerr << "Result: " << result << std::endl;
     
     // Now calculate the relative error
     // Remember: this is a jackknife, so we *sum* over differences squared and do the rescaling
@@ -66,7 +64,6 @@ double Comparator::averages(Point const &point)
     for (size_t bIdx = 0; bIdx < d_blocks; ++bIdx)  
       ave += d_jack[bIdx];
     ave /= d_blocks;
-    std::cerr << "Average: " << ave << std::endl;
     
     error = 0.0;
     for (size_t idx = 0; idx < d_blocks; ++idx)
