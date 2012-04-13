@@ -6,12 +6,14 @@
 class Log: public std::ofstream
 {
   static Log *s_instance;
-  
+
   Log(char const *filename);
   
   public:
+    static bool ionode;
+    
     ~Log();
-    static void open(char const *filename);
+    static void open(char const *filename, int rank = 0);
     static void shut();
     
     static std::ofstream &put();

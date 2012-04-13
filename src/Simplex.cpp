@@ -2,16 +2,21 @@
 #include <iomanip>
 #include <Log.h>
 
-Simplex::Simplex(Data &data, Params &params)
-: d_dim(0), d_prec(params.prec), d_comp(data, params), d_values(0)
+Simplex::Simplex(Data &data, Params &params, Weight w)
+: d_dim(0), d_prec(params.prec), d_comp(data, params), d_values(0), d_weight(w)
 {
-  log() << "Setting up initial simplex, using: " << std::endl;
+  MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
+  
+  if (Log::ionode)
+    log() << "Setting up initial simplex, using: " << std::endl;
   for (size_t idx = 0; idx < 6; ++idx)
     d_active[idx] = (std::abs(params.scale.coord[idx] / params.center.coord[idx]) > 1e-6);
   for (size_t idx = 0; idx < 6; ++idx)
     d_dim += d_active[idx] ? 1 : 0;
   
   d_points = new Point*[d_dim];
+  std::fill_n(d_points, d_dim, static_cast< Point* >(0));
+  d_values = 0;
   
   // Span the system from lower to upper for all active components
   d_points[0] = new Point(params.center);
@@ -30,19 +35,16 @@ Simplex::Simplex(Data &data, Params &params)
   for (size_t idx = 0; idx < d_dim; ++idx)
     d_points[idx]->nonNegative();
   
-  log() << *this;
+  if (Log::ionode)
+  {
+    log() << *this << std::endl;
   // We want our values precise enough, so let's request things an order or magnitude
   // better than we would like this minimization to be.
-  log() << "Calculating associated values.\n" << std::endl;
-  d_values = new double*[d_dim];
-  for (size_t idx = 0; idx < d_dim; ++idx)
-  {
-    d_values[idx] = new double;
-    *d_values[idx] = d_comp.kolmogorov(*d_points[idx]);
+    log() << "Calculating associated values.\n" << std::endl;
   }
-  sort();
-  log() << "Ordered simplex ready!\n" << *this;
-  calcCenterOfGravity();
+  recalculate();  
+  if (Log::ionode)
+    log() << "Ordered simplex ready!\n" << std::endl;
 }
 
 Simplex::~Simplex()
@@ -54,6 +56,34 @@ Simplex::~Simplex()
   }
   delete d_points;
   delete d_values;
+}
+
+void Simplex::recalculate()
+{
+  if (!d_values)
+  {
+    d_values = new double*[d_dim];
+    for (size_t idx = 0; idx < d_dim; ++idx)
+      d_values[idx] = new double;
+  }
+  for (size_t idx = 0; idx < d_dim; ++idx)
+    *d_values[idx] = getVal(*d_points[idx]);
+
+  sort();
+  calcCenterOfGravity();
+}
+
+double Simplex::getVal(Point const &point)
+{
+  switch (d_weight)
+  {
+    case KOL:
+      return d_comp.kolmogorov(point);
+    case AVE:
+      return d_comp.averages(point);
+    default:
+      return (-1.0);
+  }
 }
 
 void Simplex::sort()
@@ -95,8 +125,9 @@ size_t Simplex::position(double val) const
 size_t Simplex::constructProposal(double coeff)
 {
   construct(coeff);
-  log() << "Proposing " << d_proposal << std::endl;
-  d_propValue = d_comp.kolmogorov(d_proposal);
+  if (Log::ionode)
+    log() << "Proposing " << d_proposal << std::endl;
+  d_propValue = getVal(d_proposal);
   return position(d_propValue);
 }
 
@@ -106,8 +137,9 @@ bool Simplex::improveProposal(double coeff)
   double oldVal = d_propValue;
   
   construct(coeff);
-  log() << "Proposing " << d_proposal << " as a further improvement." << std::endl;
-  d_propValue = d_comp.kolmogorov(d_proposal);
+  if (Log::ionode)
+    log() << "Proposing " << d_proposal << " as a further improvement." << std::endl;
+  d_propValue = getVal(d_proposal);
   
   if (oldVal < d_propValue)
   {
@@ -150,9 +182,11 @@ void Simplex::reduceSimplex(double coeff)
     *d_points[idx] -= *d_points[0];
     *d_points[idx] *= coeff;
     *d_points[idx] += *d_points[0];
-    log() << "Reduction of point " << idx << " would produce " << *d_points[idx] << std::endl;
-    *d_values[idx] = d_comp.kolmogorov(*d_points[idx]);
+    if (Log::ionode)
+      log() << "Reduction of point " << idx << " would produce " << *d_points[idx] << std::endl;
+    *d_values[idx] = getVal(*d_points[idx]);
   }
+  sort();
 }
 
 std::ostream &operator<<(std::ostream &out, Simplex const &simplex)
@@ -172,4 +206,13 @@ std::ostream &operator<<(std::ostream &out, Simplex const &simplex)
     out << std::endl;
   }
   return out;
+}
+
+void Simplex::setWeight(Weight w)
+{
+  if (d_weight != w)
+  {
+    d_weight = w;
+    recalculate();
+  }
 }

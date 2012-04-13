@@ -24,7 +24,7 @@ class RanMat
     double const d_scale;
     
     size_t const d_eigMin;
-    size_t const d_numEigs;
+    size_t d_numEigs;
 
     int d_rank;
     int d_nodes;
@@ -49,7 +49,6 @@ class RanMat
     ~RanMat();
 
     void calculate(Point const &params, size_t iter);
-    size_t *discretize(double const *breaks, int eigMin, size_t const levels, size_t const eigs) const;
 
     size_t eigToIndex(int eig) const;
     
@@ -62,6 +61,8 @@ class RanMat
     size_t const &nu() const;
     
     double const *result() const;
+    
+    double average(int eig) const;
 };
 
 inline int const &RanMat::nodes() const

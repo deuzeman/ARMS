@@ -23,7 +23,7 @@ class Data
   public:
     Data(char const *filename);
 
-    Eigen::ArrayXd const &average() const;
+    double *average() const;
     Eigen::ArrayXXd const &cumulant() const;
 
     int minEv() const;

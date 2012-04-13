@@ -5,6 +5,12 @@
 #include <Point.h>
 #include <RanMat.h>
 
+enum Weight
+{
+  KOL,
+  AVE
+};
+
 class Simplex
 {
   size_t   d_dim;
@@ -15,14 +21,18 @@ class Simplex
   double     d_prec;
   Comparator d_comp;
   
+  Weight d_weight;
+  
   Point  d_cog;
   Point  d_proposal;
   double d_propValue;
   
+  int    d_rank;
+  
   friend std::ostream &operator<<(std::ostream &out, Simplex const &simplex);
   
   public:
-    Simplex(Data &data, Params &params);
+    Simplex(Data &data, Params &params, Weight w = KOL);
     ~Simplex();
     
     size_t constructProposal(double coeff);
@@ -40,12 +50,16 @@ class Simplex
     bool converged() const;
     
     void writeProposal() const;
+    void setWeight(Weight w);
+    Weight getWeight() const;
   
   private:
     void construct(double coeff);
     size_t position(double comp) const;
     void sort();
     void calcCenterOfGravity();
+    void recalculate();
+    double getVal(Point const &point);
 };
 
 inline size_t Simplex::dimension() const
@@ -84,3 +98,8 @@ inline void Simplex::writeProposal() const
 }
 
 std::ostream &operator<<(std::ostream &out, Simplex const &simplex);
+
+inline Weight Simplex::getWeight() const
+{
+  return d_weight;
+}

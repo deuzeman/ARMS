@@ -12,6 +12,8 @@ int main(int argc, char **argv)
   MPI_Init(&argc, &argv);
   int myRank;
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+  int nodes;
+  MPI_Comm_size(MPI_COMM_WORLD, &nodes);
 
   if (argc != 2)
   {
@@ -41,9 +43,10 @@ int main(int argc, char **argv)
 
   Params params(argv[1], true);
   
-  if (myRank == 0)
+  Log::open(params.output.c_str());
+  
+  if (Log::ionode)
   {
-    Log::open(params.output.c_str());
     log() << "# RMFIT MPI v4.0\n"
           << "Parameters provided:\n"
           << "  N      = " << params.N << '\n'
@@ -56,7 +59,8 @@ int main(int argc, char **argv)
           << "  blocks = " << params.blocks << '\n'
           << "  prec   = " << params.prec << '\n'
           << "  data   = " << params.data << '\n'
-          << "  output = " << params.output << '\n' << std::endl;
+          << "  output = " << params.output << '\n' 
+          << "\nRun on " << nodes << " nodes." << std::endl;
   }
   
   Data data(params.data.c_str());
@@ -64,8 +68,7 @@ int main(int argc, char **argv)
 
   Simplex const &result = minim.reduce();
   
-  if (myRank == 0)
-    Log::shut();
+  Log::shut();
   
   MPI_Finalize();
   return 0;

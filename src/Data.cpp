@@ -74,17 +74,14 @@ Data::Data(char const *filename)
     std::sort(&tempVec[0], &tempVec[d_data.rows() - 1] + 1);
     d_cumulant.col(col) = tempVec;
   }
-  
 }
 
-inline Eigen::ArrayXd const &Data::average() const
+double *Data::average() const
 {
-  return d_average;
-}
-
-inline Eigen::ArrayXXd const &Data::cumulant() const
-{
-  return d_cumulant;
+  double *res = new double[d_data.cols()];
+  for (size_t idx = 0; idx < d_data.cols(); ++idx)
+    res[idx] = d_average[idx];
+  return res;
 }
 
 double *Data::flatPerColumn() const

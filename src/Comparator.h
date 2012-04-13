@@ -14,6 +14,7 @@ class Comparator
   RanMat  d_ranmat;
   
   double *d_breaks;
+  double *d_aver;
   size_t  d_levels;
   double  d_inc;
   size_t  d_eigs;
@@ -34,6 +35,7 @@ class Comparator
     ~Comparator();
     
     double kolmogorov(Point const &point);
+    double averages(Point const &point);
     
     size_t roundToBlocks(size_t in) const;
 };

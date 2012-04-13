@@ -1,16 +1,17 @@
 #include <RanMat.h>
 
 #include <algorithm>
+#include <numeric>
 #include <iostream>
 
 RanMat::RanMat(size_t const N, size_t const nu, int const eigMin, int const eigMax)
 : d_N(N), d_nu(nu), d_scale(1.0 / std::sqrt(static_cast< double >(2 * d_N + d_nu))),
-  d_eigMin(eigToIndex(eigMin)), d_numEigs(eigMax - eigMin), d_rstream(0),
+  d_eigMin(eigToIndex(eigMin)), d_rstream(0),
   d_Z(MCD::Zero(2 * d_N + d_nu, 2 * d_N + d_nu)),
   d_gamma_5(MCD::Zero(2 * d_N + d_nu, 2 * d_N + d_nu)),
   d_A(d_N + d_nu, d_N + d_nu), d_B(d_N, d_N), d_W(d_N + d_nu, d_N),
   d_slv(2 * d_N + d_nu), d_result(0)
-{
+{  
   if ((eigMax - eigMin) < 0)
   {
     std::cerr << "Maximum eigenvalue is smaller than minimum eigenvalue." << std::endl;
@@ -21,6 +22,9 @@ RanMat::RanMat(size_t const N, size_t const nu, int const eigMin, int const eigM
     std::cerr << "Requested invalid eigenvalues -- should be equal or less then N/2." << std::endl;
     exit(1);
   }
+  d_numEigs = eigMax - eigMin;
+  if (static_cast< double >(eigMin) / eigMax > 0)
+    d_numEigs += 1;
   
   MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &d_nodes);
@@ -88,21 +92,8 @@ void RanMat::calculate(Point const &params, size_t iter)
   }
 }
 
-size_t *RanMat::discretize(double const *breaks, int eigMin, size_t const levels, size_t const eigs) const
+double RanMat::average(int eig) const
 {
-  size_t *resDiscrete = new size_t[d_samples * eigs];
-  size_t startCol = eigToIndex(eigMin);
-  if ((startCol < d_eigMin) || ((startCol + eigs) > (d_eigMin + d_numEigs)))
-    exit(1);
-  startCol -= d_eigMin;
-  for (size_t col = 0; col < eigs; ++col)
-    for (size_t row = 0; row < d_samples; ++row)
-    {
-      double const val = d_result[(startCol + col) * d_samples + row];
-      size_t idx = 0;
-      while ((idx < levels) && (val > breaks[col * levels + idx]))
-        ++idx;
-      resDiscrete[col * d_samples + row] = idx;
-    }
-    return resDiscrete;
+  double res = std::accumulate(d_result + eig * d_samples, d_result + (eig + 1) * d_samples, 0.0); 
+  return (res / d_samples);
 }

@@ -14,6 +14,8 @@ int main(int argc, char **argv)
   MPI_Init(&argc, &argv);
   int myRank;
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+  int nodes;
+  MPI_Comm_size(MPI_COMM_WORLD, &nodes);
   
   if (argc != 2)
   {
@@ -43,23 +45,25 @@ int main(int argc, char **argv)
   
   Params params(argv[1]);
   
+  Log::open(params.output.c_str());
+  
   if (myRank == 0)
   {
-    Log::open(params.output.c_str());
     log() << "# RMS MPI v4.0\n"
-    << "# Parameters provided:\n"
-    << "#   N      = " << params.N << '\n'
-    << "#   nu     = " << params.nu << '\n'
-    << "#   sigma  = " << params.center.coord[0] << '\n'
-    << "#   m      = " << params.center.coord[1] << '\n'
-    << "#   a6     = " << params.center.coord[2] << '\n'
-    << "#   a7     = " << params.center.coord[3] << '\n'
-    << "#   a8     = " << params.center.coord[4] << '\n'
-    << "#   eigMin = " << params.eigMin << '\n'
-    << "#   eigMax = " << params.eigMax << '\n'
-    << "#   iter   = " << params.iter << '\n'
-    << "#   output = " << params.output << '\n' 
-    << "#"             << std::endl;
+          << "# Parameters provided:\n"
+          << "#   N      = " << params.N << '\n'
+          << "#   nu     = " << params.nu << '\n'
+          << "#   sigma  = " << params.center.coord[0] << '\n'
+          << "#   m      = " << params.center.coord[1] << '\n'
+          << "#   a6     = " << params.center.coord[2] << '\n'
+          << "#   a7     = " << params.center.coord[3] << '\n'
+          << "#   a8     = " << params.center.coord[4] << '\n'
+          << "#   eigMin = " << params.eigMin << '\n'
+          << "#   eigMax = " << params.eigMax << '\n'
+          << "#   iter   = " << params.iter << '\n'
+          << "#   output = " << params.output << '\n' 
+          << "# Run on " << nodes << " nodes." << '\n'
+          << "#"             << std::endl;
   }
   
   RanMat generator(params.N, params.nu, params.eigMin, params.eigMax);
@@ -67,7 +71,7 @@ int main(int argc, char **argv)
   generator.calculate(params.center, params.iter);
   double const *result = generator.result();
   
-  if (myRank == 0)
+  if (Log::ionode)
   {
     log().setf(std::ios::right, std::ios::adjustfield);
     for (int ctr = params.eigMin; ctr <= params.eigMax; ++ctr)
@@ -82,20 +86,20 @@ int main(int argc, char **argv)
   
   for (size_t idx = 0; idx < generator.nodes(); ++idx)
   {
-    if (myRank == idx)
+    Log::open(params.output.c_str(), idx);
+    if (Log::ionode)
     {
-      Log::open(params.output.c_str());
       log().precision(8);
       log().setf(std::ios::fixed, std::ios::floatfield);
       log().setf(std::ios::right, std::ios::adjustfield);
-      for (size_t it = 0; it < params.iter; ++it)
+      for (size_t it = 0; it < generator.numSamples(); ++it)
       {
         for (size_t eig = 0; eig < generator.numEigs(); ++eig)
           log() << std::setw(15) << result[eig * generator.numSamples() + it];
         log() << std::endl;
       }
-      Log::shut();
     }
+    Log::shut();
     MPI_Barrier(MPI_COMM_WORLD);
   }
   

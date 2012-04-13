@@ -3,20 +3,32 @@
 
 Simplex const &Minim::reduce()
 {
-  log() << "\nStarting minimization routine!\n\n";
+  if (Log::ionode)
+    log() << "\nStarting minimization routine!\n\n";
   for (size_t iter = 0; iter < 500; ++iter)
   {
-    log() << "At iteration " << iter << ":\n" << d_simplex;
+    if (Log::ionode) 
+      log() << "At iteration " << iter << ":\n" << d_simplex;
     // Check if this is already a solution to the problem
     if (d_simplex.converged())
     {
-      log() << "Simplex values indicate convergence!\nFinal solution:\n" << d_simplex;
+      if (d_simplex.getWeight() == AVE)
+      {
+        if (Log::ionode)
+          log() << "Simplex values indicate convergence using average value.\nSwitching to KS.\n";
+        d_simplex.setWeight(KOL);
+        if (Log::ionode)
+          log() << "Under changed weighting, simplex has assumed the following form:\n" << d_simplex << std::endl;
+        continue;
+      }
+      if (Log::ionode)
+        log() << "Simplex values indicate convergence!\nFinal solution:\n" << d_simplex << std::endl;
       break;
     }
     
     Point proposed;
-    
-    log() << "REFLECT\n";
+    if (Log::ionode)
+      log() << "== REFLECT ==\n";
     size_t loc = d_simplex.constructProposal(d_alpha); // Reflect
     
     // Is it the best point so far? Then extend and see what happens!
@@ -24,40 +36,46 @@ Simplex const &Minim::reduce()
     // We can just drop through to the next if-case
     if (loc == 0) 
     {
-      log() << "EXTEND\n";
+      if (Log::ionode)
+        log() << "== EXTEND ==\n";
       d_simplex.improveProposal(d_gamma); // Extend
     }
     
     // Is our proposal better than the second worst? That'll do us fine, get rid of the worst one and repeat
     if (loc < (d_simplex.dimension() - 1))
     {
-      log() << "Reflection accepted.\n";
+      if (Log::ionode)
+        log() << "Reflection accepted.\n";
       d_simplex.acceptProposal();
       continue; 
     }
     else
-      log() << "Reflection rejected.\n";
-
+    {
+      if (Log::ionode)
+        log() << "Reflection rejected.\n";
+    }
     
     // If we arrived here, then the proposal was pretty crappy too
     // That is, it was *perhaps* better than the worst know point.
     // At this point, we contract and don't care about the old proposal either way.
-    
-    log() << "CONTRACT\n";
+    if (Log::ionode)
+      log() << "== CONTRACT ==\n";
     loc = d_simplex.constructProposal(d_rho); // Contract
 
     if (loc > d_simplex.dimension())
     {
-      log() << "Contraction accepted.\n";
+      if (Log::ionode)
+        log() << "Contraction accepted.\n";
       d_simplex.acceptProposal();
       continue; // i.e. the contracted point is an improvement, so we continue on
     }
-    else
+    if (Log::ionode)
       log() << "Contraction rejected.\n";
       
     // We've arrived at the point where a reduction is needed
     // Reduce
-    log() << "REDUCE\n";
+    if (Log::ionode)
+      log() << "== REDUCE ==\n";
     d_simplex.reduceSimplex(d_sigma);
     
     // That concludes things here!

@@ -10,6 +10,7 @@ Discretizer::Discretizer(double const *breaks, size_t numBreaks, size_t numEigs,
    d_hist = new double[d_levels * d_numBlocks];
    d_cum = new double[d_numEigs * d_levels];
    d_block = new double[d_numEigs * d_levels * d_numBlocks];
+   d_avBlocks = new double[d_numEigs * d_numBlocks];
    
    clear();
 }
@@ -18,6 +19,7 @@ void Discretizer::clear()
 {
   std::fill_n(d_cum, d_numEigs * d_levels, 0.0);
   std::fill_n(d_block, d_numEigs * d_levels * d_numBlocks, 0.0);
+  std::fill_n(d_avBlocks, d_numEigs * d_numBlocks, 0.0);
   
   d_sampTotal = 0;
 }
@@ -48,6 +50,8 @@ void Discretizer::calculate(RanMat const &ranmat)
     std::fill_n(d_cum, d_levels * d_numEigs, 0.0);
     for (size_t idx = 0; idx < d_numEigs * d_levels * d_numBlocks; ++idx)
       d_block[idx] *= refac;
+    for (size_t idx = 0; idx < d_numEigs * d_numBlocks; ++idx)
+      d_avBlocks[idx] *= refac;
   }
   d_sampTotal += d_nodes * ranmat.numSamples();
   
@@ -55,6 +59,9 @@ void Discretizer::calculate(RanMat const &ranmat)
   
   size_t const bStep = d_numEigs * d_levels;
 
+  size_t const bSize = ranmat.numSamples() / d_numBlocks;
+  double const avfac = static_cast< double >(ranmat.numSamples()) / (d_sampTotal * bSize);
+  
   for (size_t eig = 0; eig < d_numEigs; ++eig)
   {
     std::fill_n(d_hist, d_levels * d_numBlocks, 0.0);
@@ -81,18 +88,11 @@ void Discretizer::calculate(RanMat const &ranmat)
         pc[lev] += d_block[(bIdx * d_numEigs + eig) * d_levels + lev];
       }
     }
-    if (eig == 4)
+    
+    for (size_t bIdx = 0; bIdx < d_numBlocks; ++bIdx)
     {
-      std::cout << "===================" << std::endl;
-      for (size_t idx = 0; idx < d_levels; ++idx)
-      {
-	if (idx == 0)
-	  std::cout << 0.0;
-	else
-	  std::cout << d_breaks[eig * (d_levels - 1) + idx];
-	std::cout << "  " << pc[idx] << std::endl;
-      }
-      std::cout << "===================" << std::endl;
+      d_avBlocks[eig * d_numBlocks + bIdx] += 
+                avfac * std::accumulate(res + eig * ranmat.numSamples() + bIdx * bSize, res + eig * ranmat.numSamples() + (bIdx + 1) * bSize, 0.0);
     }
   }
 }
@@ -102,4 +102,5 @@ Discretizer::~Discretizer()
   delete[] d_hist;
   delete[] d_cum;
   delete[] d_block;
+  delete[] d_avBlocks;
 }

@@ -1,17 +1,25 @@
 #include <Log.h>
 
+#include <mpi.h>
 #include <cstdlib>
 
 Log *Log::s_instance = 0;
+bool Log::ionode = false;
 
-void Log::open(char const *filename)
+void Log::open(char const *filename, int rank)
 {
-  if (Log::s_instance)
+  int myrank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+  ionode = (myrank == rank);
+  if (ionode)
   {
-    std::cerr << "[ERROR] Double opening of log!" << std::endl;
-    exit(1);
+    if (Log::s_instance)
+    {
+      std::cerr << "[ERROR] Double opening of log!" << std::endl;
+      exit(1);
+    }
+    Log::s_instance = new Log(filename);
   }
-  Log::s_instance = new Log(filename);
 }
 
 void Log::shut()
@@ -20,6 +28,7 @@ void Log::shut()
     s_instance->close();
   delete Log::s_instance;
   Log::s_instance = 0;
+  Log::ionode = false;
 }
 
 std::ofstream &Log::put()
