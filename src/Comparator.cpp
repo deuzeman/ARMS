@@ -5,16 +5,16 @@
 
 Comparator::Comparator(Data &data, Params &params)
 : d_ranmat(params.N, params.nu, data.minEv(), data.maxEv()), 
-d_breaks(data.flatPerColumn()),
-d_aver(data.average()),
-d_levels(data.numSamples() + 1), 
-d_inc(1.0 / data.numSamples()), 
-d_eigs(data.numCols()), 
-d_minEv(data.minEv()),
-d_blocks(params.blocks),
-d_relprec(0.1 * params.prec), 
-d_disc(d_breaks, data.numSamples(), d_eigs, d_blocks),
-d_jack(new double[d_blocks])
+  d_breaks(data.flatPerColumn()),
+  d_aver(data.average()),
+  d_levels(data.numSamples() + 1), 
+  d_inc(1.0 / data.numSamples()), 
+  d_eigs(data.numCols()), 
+  d_minEv(data.minEv()),
+  d_blocks(params.blocks),
+  d_relprec(0.1 * params.prec), 
+  d_disc(d_breaks, data.numSamples(), d_eigs, d_blocks),
+  d_jack(new double[d_blocks])
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &d_nodes);
@@ -24,8 +24,8 @@ double Comparator::averages(Point const &point)
 {
   if (Log::ionode)
     log() << "  >>  Calculating eigenvalue average deviation for " << point << std::endl;
-  
-  double result = 0.0;
+
+  double result;
   double error = 1.0;
   double const rescale = static_cast< double >(d_blocks) / (d_blocks - 1.0);
   size_t needed = roundToBlocks(2 * d_levels); // We don't want the resolution here to be an issue
@@ -52,9 +52,13 @@ double Comparator::averages(Point const &point)
         d_jack[blockIdx] += std::pow((pred - d_aver[eig]) / d_aver[eig], 2.0);
       }
     }
+    
+    result = 0.0;
     for (size_t eig = 0; eig < d_eigs; ++eig)
     {
       double pred = d_disc.average(eig);
+      std::cout << "For eigenvalue " << eig << ": measurement = " << d_aver[eig] << ", prediction = " << pred << std::endl;
+      std::cout << "                              relative deviation " << ((pred - d_aver[eig]) / d_aver[eig]) << std::endl;
       result += std::pow((pred - d_aver[eig]) / d_aver[eig], 2.0);
     }
     
