@@ -49,13 +49,13 @@ double Comparator::averages(Point const &point)
       for (size_t eig = 0; eig < d_eigs; ++eig)
       {
         double pred = d_disc.average(eig, blockIdx);
-        d_jack[blockIdx] += std::pow(pred - d_aver[eig], 2.0);
+        d_jack[blockIdx] += std::pow((pred - d_aver[eig]) / d_aver[eig], 2.0);
       }
     }
     for (size_t eig = 0; eig < d_eigs; ++eig)
     {
       double pred = d_disc.average(eig);
-      result += std::pow(pred - d_aver[eig], 2.0);
+      result += std::pow((pred - d_aver[eig]) / d_aver[eig], 2.0);
     }
     
     // Now calculate the relative error
@@ -67,7 +67,7 @@ double Comparator::averages(Point const &point)
     
     error = 0.0;
     for (size_t idx = 0; idx < d_blocks; ++idx)
-      error += (d_jack[idx] - ave) * (d_jack[idx] - ave);
+      error += std::pow(d_jack[idx] - ave, 2.0);
     error = std::sqrt(error * rescale);
     if (Log::ionode)
       log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;
