@@ -2,105 +2,132 @@
 
 #include <numeric>
 
-Discretizer::Discretizer(double const *breaks, size_t numBreaks, size_t numEigs, size_t blocks)
- : d_numEigs(numEigs), d_levels(numBreaks + 1), d_numBlocks(blocks), d_numBreaks(numBreaks), d_breaks(breaks), d_data(0), d_blockFac(d_numBlocks / (d_numBlocks - 1.0))
+Discretizer::Discretizer(double const *breaks, unsigned long numBreaks, unsigned long numEigs, unsigned long blocks)
+ : d_numEigs(numEigs), d_numBlocks(blocks), d_numLevels(numBreaks + 1), d_sampTotal(0), d_breaks(breaks)
 {
    MPI_Comm_size(MPI_COMM_WORLD, &d_nodes);
-   d_acc = new double[d_numBlocks];
-   d_hist = new double[d_levels * d_numBlocks];
-   d_cum = new double[d_numEigs * d_levels];
-   d_block = new double[d_numEigs * d_levels * d_numBlocks];
-   d_sumBlocks = new double[d_numEigs * d_numBlocks];
-   d_avBlocks = new double[d_numEigs * d_numBlocks];
+   
+   d_sum_blocks = new double[d_numEigs * d_numBlocks];
+   d_mean_blocks = new double[d_numEigs * d_numBlocks];
+   
+   d_hist_blocks = new unsigned long[d_numEigs * d_numLevels * d_numBlocks];
+   d_cum_blocks = new double[d_numEigs * d_numLevels * d_numBlocks];
    
    clear();
 }
 
 void Discretizer::clear()
 {
-  std::fill_n(d_cum, d_numEigs * d_levels, 0.0);
-  std::fill_n(d_block, d_numEigs * d_levels * d_numBlocks, 0.0);
-  std::fill_n(d_sumBlocks, d_numEigs * d_numBlocks, 0.0);
-  
   d_sampTotal = 0;
+  std::fill_n(d_sum_blocks, d_numEigs * d_numBlocks, 0.0);
+  std::fill_n(d_hist_blocks, d_numEigs * d_numLevels * d_numBlocks, 0.0);
 }
  
 void Discretizer::calculate(RanMat const &ranmat)
 {
-  d_levels = d_numBreaks + 1; 
-  
   double const *res = ranmat.result();
-  d_data = new size_t[ranmat.numSamples() * d_numEigs];
-  std::fill_n(d_data, ranmat.numSamples() * d_numEigs, 0);
   
-  for (size_t eig = 0; eig < d_numEigs; ++eig)
+  // Sum the data block-by-block
+  for (unsigned long eig = 0; eig < d_numEigs; ++eig)
+    for (unsigned long samp = 0; samp < ranmat.numSamples(); ++samp)
+      d_sum_blocks[(samp % d_numBlocks) * d_numEigs + eig] += res[eig * ranmat.numSamples() + samp];
+  // This is all that is needed for the calculation of averages
+  
+  // Gather the data as a histogram
+  unsigned long *data = new unsigned long[ranmat.numSamples() * d_numEigs];
+  std::fill_n(data, ranmat.numSamples() * d_numEigs, 0);
+
+  // Loop over the data and get the binning numbers
+  for (unsigned long eig = 0; eig < d_numEigs; ++eig)
   {
-    size_t *pd = d_data + eig * ranmat.numSamples();
-    double const *pb = d_breaks + eig * d_numBreaks;
-    for (size_t samp = 0; samp < ranmat.numSamples(); ++samp)
-      while ((pd[samp] < d_numBreaks) && res[samp] > pb[pd[samp]])
+    unsigned long *pd = data + eig * ranmat.numSamples();
+    double const *pb = d_breaks + eig * (d_numLevels - 1);
+    for (unsigned long samp = 0; samp < ranmat.numSamples(); ++samp)
+      while ((pd[samp] < (d_numLevels - 1)) && res[samp] > pb[pd[samp]])
         ++pd[samp];
   }
 
-  // Check if we are extending our data here.
-  // If so, fix the normalization of the data here.
-  if (d_sampTotal > 0)
+  // Now go over the binning numbers and produce bin counts
+  for (unsigned long eig = 0; eig < d_numEigs; ++eig)
   {
-    double refac = static_cast< double >(d_sampTotal) / (d_sampTotal + d_nodes * ranmat.numSamples());
-    // d_cum will be overwritten later on, so we don't need to bother rescaling
-    std::fill_n(d_cum, d_levels * d_numEigs, 0.0);
-    for (size_t idx = 0; idx < d_numEigs * d_levels * d_numBlocks; ++idx)
-      d_block[idx] *= refac;
+    unsigned long *pd = data + eig * ranmat.numSamples(); 
+    for (unsigned long samp = 0; samp < ranmat.numSamples(); ++samp)
+      ++d_hist_blocks[(samp % d_numBlocks) * d_numLevels + pd[samp]];
   }
+  delete[] data;
   
   d_sampTotal += d_nodes * ranmat.numSamples();
-  
-  double const inc = 1.0 / d_sampTotal;
-  
-  size_t const bStep = d_numEigs * d_levels;
 
-  size_t const bSize = ranmat.numSamples() / d_numBlocks;
-  double const avfac = static_cast< double >(ranmat.numSamples()) / (d_sampTotal * bSize);
+  // We have now gathered the overall data per block per node.
+  // These are just sums, so we don't need to do any rescaling.
+  // Now we want to produce averages globally.
   
-  for (size_t eig = 0; eig < d_numEigs; ++eig)
+  // Aggregate the sums globally and calculate the averages per block
+  double avfac = static_cast< double >(d_numBlocks) / d_sampTotal;
+  
+  MPI_Allreduce(d_sum_blocks, d_mean_blocks, d_numEigs * d_numBlocks, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  for (unsigned long idx = 0; idx < d_numEigs * d_numBlocks; ++idx)
+    d_mean_blocks[idx] *= avfac;  
+  
+  // Aggregate the histograms globally
+  unsigned long *glob_hist_blocks = new unsigned long[d_numEigs * d_numLevels * d_numBlocks];
+  MPI_Allreduce(d_hist_blocks, glob_hist_blocks, d_numEigs * d_numLevels * d_numBlocks, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+  for (unsigned long idx = 0; idx < d_numEigs * d_numLevels * d_numBlocks; ++idx)
+    d_cum_blocks[idx] = avfac * glob_hist_blocks[idx];
+  delete[] glob_hist_blocks;
+  
+  // Now create a cumulative distribution from the global histograms
+  for (unsigned long bIdx = 0; bIdx < d_numBlocks; ++bIdx)
+    for (unsigned long eig = 0; eig < d_numEigs; ++eig)
+      for (unsigned long level = 1; level < d_numLevels; ++level)
+        d_cum_blocks[(bIdx * d_numEigs + eig) * d_numLevels + level] += d_cum_blocks[(bIdx * d_numEigs + eig) * d_numLevels + level - 1];
+}
+
+double Discretizer::operator()(unsigned long const &eig, unsigned long const &level) const
+{
+  double res = 0.0;
+  for (unsigned long bIdx = 0; bIdx < d_numBlocks; ++bIdx)
+    res += d_cum_blocks[(bIdx * d_numEigs + eig) * d_numLevels + level];
+  return (res / d_numBlocks);
+}
+
+double Discretizer::operator()(unsigned long const &eig, unsigned long const &level, unsigned long const &block) const
+{
+  double res = 0.0;
+  for (unsigned long bIdx = 0; bIdx < d_numBlocks; ++bIdx)
   {
-    std::fill_n(d_hist, d_levels * d_numBlocks, 0.0);
-
-    size_t *pd = d_data + eig * ranmat.numSamples();
-    double *pc = d_cum + eig * d_levels;
-    
-    for (size_t samp = 0; samp < ranmat.numSamples(); ++samp)
-    {
-      d_hist[(samp % d_numBlocks) * d_levels + pd[samp]] += inc;
-    }
-    
-    // If we're doing an MPI run, this is the point to aggregate those results
-    MPI_Allreduce(MPI_IN_PLACE, d_hist, d_levels * d_numBlocks, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    
-    // In the remainder, all data are already global sums, so we don't need to think about this further.
-    std::fill_n(d_acc, d_numBlocks, 0.0);
-    for (size_t lev = 0; lev < d_levels; ++lev)
-    {
-      for (size_t bIdx = 0; bIdx < d_numBlocks; ++bIdx)
-      {
-        d_acc[bIdx] += d_hist[bIdx * d_levels + lev];
-        d_block[(bIdx * d_numEigs + eig) * d_levels + lev] += d_acc[bIdx];
-        pc[lev] += d_block[(bIdx * d_numEigs + eig) * d_levels + lev];
-      }
-    }
-    
-    for (size_t bIdx = 0; bIdx < d_numBlocks; ++bIdx)
-      d_sumBlocks[eig * d_numBlocks + bIdx] += std::accumulate(res + eig * ranmat.numSamples() + bIdx * bSize, res + eig * ranmat.numSamples() + (bIdx + 1) * bSize, 0.0);
+    if (bIdx == block)
+      continue;
+    res += d_cum_blocks[(bIdx * d_numEigs + eig) * d_numLevels + level];
   }
-  MPI_Allreduce(d_sumBlocks, d_avBlocks, d_numEigs * d_numBlocks, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  for (size_t idx = 0; idx < d_numEigs * d_numBlocks; ++idx)
-    d_avBlocks[idx] *= (static_cast< double >(d_numBlocks) / d_sampTotal);
+  return (res / (d_numBlocks - 1));
+}
+
+double Discretizer::average(unsigned long const &eig) const
+{
+  double res = 0.0;
+  for (unsigned long bIdx = 0; bIdx < d_numBlocks; ++bIdx)
+    res += d_mean_blocks[bIdx * d_numEigs + eig];
+  return (res / d_numBlocks);
+}
+
+double Discretizer::average(unsigned long const &eig, unsigned long const &block) const
+{
+  double res = 0.0;
+  for (unsigned long bIdx = 0; bIdx < d_numBlocks; ++bIdx)
+  {
+    if (bIdx == block)
+      continue;
+    res += d_mean_blocks[bIdx * d_numEigs + eig];
+  }
+  return (res / (d_numBlocks - 1));
 }
 
 Discretizer::~Discretizer()
 {
-  delete[] d_hist;
-  delete[] d_cum;
-  delete[] d_block;
-  delete[] d_avBlocks;
+  delete[] d_sum_blocks;
+  delete[] d_mean_blocks;
+  
+  delete[] d_hist_blocks;
+  delete[] d_cum_blocks;
 }
