@@ -23,6 +23,7 @@ class Discretizer
   
   size_t d_sampTotal;
   
+  double *d_sumBlocks;
   double *d_avBlocks;
   
   public:

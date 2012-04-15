@@ -10,6 +10,7 @@ Discretizer::Discretizer(double const *breaks, size_t numBreaks, size_t numEigs,
    d_hist = new double[d_levels * d_numBlocks];
    d_cum = new double[d_numEigs * d_levels];
    d_block = new double[d_numEigs * d_levels * d_numBlocks];
+   d_sumBlocks = new double[d_numEigs * d_numBlocks];
    d_avBlocks = new double[d_numEigs * d_numBlocks];
    
    clear();
@@ -19,7 +20,7 @@ void Discretizer::clear()
 {
   std::fill_n(d_cum, d_numEigs * d_levels, 0.0);
   std::fill_n(d_block, d_numEigs * d_levels * d_numBlocks, 0.0);
-  std::fill_n(d_avBlocks, d_numEigs * d_numBlocks, 0.0);
+  std::fill_n(d_sumBlocks, d_numEigs * d_numBlocks, 0.0);
   
   d_sampTotal = 0;
 }
@@ -50,9 +51,8 @@ void Discretizer::calculate(RanMat const &ranmat)
     std::fill_n(d_cum, d_levels * d_numEigs, 0.0);
     for (size_t idx = 0; idx < d_numEigs * d_levels * d_numBlocks; ++idx)
       d_block[idx] *= refac;
-    for (size_t idx = 0; idx < d_numEigs * d_numBlocks; ++idx)
-      d_avBlocks[idx] *= refac;
   }
+  
   d_sampTotal += d_nodes * ranmat.numSamples();
   
   double const inc = 1.0 / d_sampTotal;
@@ -77,7 +77,7 @@ void Discretizer::calculate(RanMat const &ranmat)
     // If we're doing an MPI run, this is the point to aggregate those results
     MPI_Allreduce(MPI_IN_PLACE, d_hist, d_levels * d_numBlocks, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     
-    // In the remainder, all data are already global sums, so we don't need to think about th5250027is further.
+    // In the remainder, all data are already global sums, so we don't need to think about this further.
     std::fill_n(d_acc, d_numBlocks, 0.0);
     for (size_t lev = 0; lev < d_levels; ++lev)
     {
@@ -90,15 +90,11 @@ void Discretizer::calculate(RanMat const &ranmat)
     }
     
     for (size_t bIdx = 0; bIdx < d_numBlocks; ++bIdx)
-    {
-      d_avBlocks[eig * d_numBlocks + bIdx] += 
-                avfac * std::accumulate(res + eig * ranmat.numSamples() + bIdx * bSize, res + eig * ranmat.numSamples() + (bIdx + 1) * bSize, 0.0);
-    }
-    
-    // If we're doing an MPI run, aggregate the results on the averages...
+      d_sumBlocks[eig * d_numBlocks + bIdx] += std::accumulate(res + eig * ranmat.numSamples() + bIdx * bSize, res + eig * ranmat.numSamples() + (bIdx + 1) * bSize, 0.0);
   }
-  MPI_Allreduce(MPI_IN_PLACE, d_avBlocks, d_numEigs * d_numBlocks, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  // avfac already divides the number of samples per node by the total number -- so this is actually the average!
+  MPI_Allreduce(d_sumBlocks, d_avBlocks, d_numEigs * d_numBlocks, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  for (size_t idx = 0; idx < d_numEigs * d_numBlocks; ++idx)
+    d_avBlocks[idx] *= (static_cast< double >(d_numBlocks) / d_sampTotal);
 }
 
 Discretizer::~Discretizer()
