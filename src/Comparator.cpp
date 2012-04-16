@@ -12,7 +12,7 @@ Comparator::Comparator(Data &data, Params &params)
   d_eigs(data.numCols()), 
   d_minEv(data.minEv()),
   d_blocks(params.blocks),
-  d_relprec(0.1 * params.prec), 
+  d_relprec(0.5 * params.prec), 
   d_disc(d_breaks, data.numSamples(), d_eigs, d_blocks),
   d_jack(new double[d_blocks])
 {
