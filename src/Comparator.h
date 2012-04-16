@@ -13,7 +13,6 @@ class Comparator
 {
   RanMat  d_ranmat;
   
-  double *d_breaks;
   double *d_aver;
   size_t  d_levels;
   double  d_inc;

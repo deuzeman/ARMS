@@ -5,15 +5,14 @@
 
 Comparator::Comparator(Data &data, Params &params)
 : d_ranmat(params.N, params.nu, data.minEv(), data.maxEv()), 
-  d_breaks(data.flatPerColumn()),
   d_aver(data.average()),
-  d_levels(data.numSamples() + 1), 
-  d_inc(1.0 / data.numSamples()), 
+  d_levels((data.numSamples() + 1) * data.numCols()), 
+  d_inc(1.0 / (data.numSamples() * data.numCols())), 
   d_eigs(data.numCols()), 
   d_minEv(data.minEv()),
   d_blocks(params.blocks),
   d_prec(0.5 * params.prec), 
-  d_disc(d_breaks, data.numSamples(), d_eigs, d_blocks),
+  d_disc(data.flat(), data.numSamples() * d_eigs, d_eigs, d_blocks),
   d_jack(new double[d_blocks])
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
@@ -117,34 +116,16 @@ double Comparator::kolmogorov(Point const &point)
     samples += needed;
     d_disc.calculate(d_ranmat);
 
-    for (size_t blockIdx = 0; blockIdx < d_blocks; ++blockIdx)
+    for (size_t block = 0; block < d_blocks; ++block)
     {
-      d_jack[blockIdx] = 0.0;
-      for (size_t eig = 0; eig < d_eigs; ++eig)
-      {
-	double qq = 0.0;
-        for (size_t samp = 0; samp < d_levels; ++samp)
-        {
-          double cc = std::abs(d_disc(eig, samp, blockIdx) - samp * d_inc);
-          qq = std::max(qq, cc);
-        }
-        d_jack[blockIdx] += qq;
-      }
-      d_jack[blockIdx] /= d_eigs;
+      d_jack[block] = 0.0;
+      for (size_t samp = 0; samp < d_levels; ++samp)
+	d_jack[block] = std::max(d_jack[block], std::abs(d_disc(samp, block) - samp * d_inc));
     }
     
     result = 0.0;
-    for (size_t eig = 0; eig < d_eigs; ++eig)
-    {
-      double qq = 0.0;
-      for (size_t samp = 1; samp < d_levels; ++samp)
-      {
-        double cc = std::abs(d_disc(eig, samp) - samp * d_inc);
-        qq = std::max(qq, cc);
-      }
-      result += qq;
-    }
-    result /= d_eigs;
+    for (size_t samp = 1; samp < d_levels; ++samp)
+      result = std::max(result, std::abs(d_disc(samp) - samp * d_inc));
       
     // Now calculate the relative error
     // Remember: this is a jackknife, so we *sum* over differences squared and do the rescaling
