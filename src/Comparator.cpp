@@ -48,7 +48,7 @@ double Comparator::averages(Point const &point)
       for (size_t eig = 0; eig < d_eigs; ++eig)
       {
         double pred = d_disc.average(eig, blockIdx);
-        d_jack[blockIdx] += std::pow(pred - d_aver[eig], 2.0);
+        d_jack[blockIdx] += std::pow((pred - d_aver[eig]) / d_aver[eig], 2.0);
       }
     }
     
@@ -59,9 +59,9 @@ double Comparator::averages(Point const &point)
       if (d_rank == 0)
       {
 	std::cout << "For eigenvalue " << eig << ": measurement = " << d_aver[eig] << ", prediction = " << pred << std::endl;
-	std::cout << "                              deviation   =  " << (pred - d_aver[eig]) << std::endl;
+	std::cout << "                    deviation   =  " << ((pred - d_aver[eig]) / d_aver[eig]) << std::endl;
       }
-      result += std::pow(pred - d_aver[eig], 2.0);
+      result += std::pow((pred - d_aver[eig]) / d_aver[eig], 2.0);
     }
     
     // Now calculate the relative error
@@ -75,9 +75,7 @@ double Comparator::averages(Point const &point)
     ave /= d_blocks;
     aveSq /= d_blocks;
     
-    if (d_rank == 0)
-      std::cout << aveSq << " - " << ave << "^2 = " << (aveSq - ave * ave) << std::endl;
-    error = std::sqrt(aveSq - ave * ave);
+    error = std::sqrt((aveSq - ave * ave) / d_blocks);
     
     if (Log::ionode)
       log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;
@@ -152,11 +150,11 @@ double Comparator::kolmogorov(Point const &point)
     for (size_t idx = 0; idx < d_blocks; ++idx)
     {
       ave += d_jack[idx];
-      aveSq += d_jack[idx] + d_jack[idx];
+      aveSq += d_jack[idx] * d_jack[idx];
     }
     ave /= d_blocks;
     aveSq /= d_blocks;
-    error = std::sqrt(aveSq - ave * ave);
+    error = std::sqrt((aveSq - ave * ave) / d_blocks);
     
     if (Log::ionode)
       log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;

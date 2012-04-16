@@ -15,7 +15,7 @@ Simplex const &Minim::reduce()
       if (d_simplex.getWeight() == AVE)
       {
         if (Log::ionode)
-          log() << "Simplex values indicate convergence using average value.\nSwitching to KS.\n";
+          log() << "Simplex values indicate heuristic convergence using average value.\nSwitching to KS.\n";
         d_simplex.setWeight(KOL);
         if (Log::ionode)
           log() << "Under changed weighting, simplex has assumed the following form:\n" << d_simplex << std::endl;
