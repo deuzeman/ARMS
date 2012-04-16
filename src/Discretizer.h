@@ -32,3 +32,13 @@ class Discretizer
     double average(unsigned long const &eig) const;
     double average(unsigned long const &eig, unsigned long const &block) const;
 };
+
+inline double Discretizer::operator()(unsigned long const &eig, unsigned long const &level, unsigned long const &block) const
+{
+  return d_cum_blocks[(block * d_numEigs + eig) * d_numLevels + level];
+}
+
+inline double Discretizer::average(unsigned long const &eig, unsigned long const &block) const
+{
+  return d_mean_blocks[block * d_numEigs + eig];
+}

@@ -12,7 +12,7 @@ Comparator::Comparator(Data &data, Params &params)
   d_eigs(data.numCols()), 
   d_minEv(data.minEv()),
   d_blocks(params.blocks),
-  d_relprec(0.5 * params.prec), 
+  d_prec(0.5 * params.prec), 
   d_disc(d_breaks, data.numSamples(), d_eigs, d_blocks),
   d_jack(new double[d_blocks])
 {
@@ -27,13 +27,12 @@ double Comparator::averages(Point const &point)
 
   double result;
   double error = 1.0;
-  double const rescale = static_cast< double >(d_blocks) / (d_blocks - 1.0);
   size_t needed = roundToBlocks(2 * d_levels); // We don't want the resolution here to be an issue
   
   size_t samples = 0;
   
   d_disc.clear();
-  while (error > d_relprec)
+  while (error > d_prec)
   {
     if (Log::ionode)
       log() << "  >>  Requesting " << needed << " samples." << std::endl;
@@ -49,7 +48,7 @@ double Comparator::averages(Point const &point)
       for (size_t eig = 0; eig < d_eigs; ++eig)
       {
         double pred = d_disc.average(eig, blockIdx);
-        d_jack[blockIdx] += std::pow((pred - d_aver[eig]) / d_aver[eig], 2.0);
+        d_jack[blockIdx] += std::pow(pred - d_aver[eig], 2.0);
       }
     }
     
@@ -60,35 +59,35 @@ double Comparator::averages(Point const &point)
       if (d_rank == 0)
       {
 	std::cout << "For eigenvalue " << eig << ": measurement = " << d_aver[eig] << ", prediction = " << pred << std::endl;
-	std::cout << "                              relative deviation " << ((pred - d_aver[eig]) / d_aver[eig]) << std::endl;
+	std::cout << "                              deviation   =  " << (pred - d_aver[eig]) << std::endl;
       }
-      result += std::pow((pred - d_aver[eig]) / d_aver[eig], 2.0);
+      result += std::pow(pred - d_aver[eig], 2.0);
     }
     
     // Now calculate the relative error
-    // Remember: this is a jackknife, so we *sum* over differences squared and do the rescaling
     double ave = 0.0;
+    double aveSq = 0.0;
     for (size_t bIdx = 0; bIdx < d_blocks; ++bIdx)  
+    {
       ave += d_jack[bIdx];
+      aveSq += d_jack[bIdx] * d_jack[bIdx];
+    }
     ave /= d_blocks;
+    aveSq /= d_blocks;
     
-    error = 0.0;
-    for (size_t idx = 0; idx < d_blocks; ++idx)
-      error += std::pow(d_jack[idx] - ave, 2.0);
-    error = std::sqrt(error * rescale);
+    std::cout << aveSq << " - " << ave << "^2 = " << (aveSq - ave * ave) << std::endl;
+    error = std::sqrt(aveSq - ave * ave);
+    
     if (Log::ionode)
       log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;
-    error /= result;
-    if (Log::ionode)
-      log() << "  >>  That implies a relative error of " << error << '.' << std::endl;
 
     
     // We'll add a minimum and maximum number of iterations
     // To avoid waiting forever for the 1M measurements
     // or watching the thing skip around in increments of 50.
-    needed = std::min(std::max(roundToBlocks(static_cast< size_t >(std::pow((error / d_relprec), 2.0) * samples)), 
+    needed = std::min(std::max(roundToBlocks(static_cast< size_t >(std::pow((error / d_prec), 2.0) * samples)), 
                                              static_cast< size_t >(1000)), static_cast< size_t >(50000));
-    if (error < d_relprec && !d_rank)
+    if (error < d_prec && !d_rank)
       log() << "  >>  This is sufficient for the currently needed precision.\n" << std::endl;
   }
   return result;
@@ -101,14 +100,13 @@ double Comparator::kolmogorov(Point const &point)
   
   // Set up some data structure for the algorithms
   double error = 1.0;
-  double const rescale = static_cast< double >(d_blocks) / (d_blocks - 1.0);
   size_t needed = roundToBlocks(2 * d_levels); // We don't want the resolution here to be an issue
   
   size_t samples = 0;
   double result = 0.0;
 
   d_disc.clear();
-  while (error > d_relprec)
+  while (error > d_prec)
   {
     if (Log::ionode)
       log() << "  >>  Requesting " << needed << " samples." << std::endl;
@@ -149,27 +147,23 @@ double Comparator::kolmogorov(Point const &point)
     // Now calculate the relative error
     // Remember: this is a jackknife, so we *sum* over differences squared and do the rescaling
     double ave = 0.0;
+    double aveSq = 0.0;
     for (size_t idx = 0; idx < d_blocks; ++idx)
+    {
       ave += d_jack[idx];
-    ave /= d_blocks;
+      aveSq += d_jack[idx] + d_jack[idx];
+    }
+    error = std::sqrt((aveSq - ave * ave) / d_blocks);
     
-    error = 0.0;
-    for (size_t idx = 0; idx < d_blocks; ++idx)
-      error += (d_jack[idx] - ave) * (d_jack[idx] - ave);
-    error = std::sqrt(error * rescale);
     if (Log::ionode)
       log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;
-    error /= result;
-    if (Log::ionode)
-      log() << "  >>  That implies a relative error of " << error << '.' << std::endl;
-
     
     // We'll add a minimum and maximum number of iterations
     // To avoid waiting forever for the 1M measurements
     // or watching the thing skip around in increments of 50.
-    needed = std::min(std::max(roundToBlocks(static_cast< size_t >(std::pow((error / d_relprec), 2.0) * samples)), 
+    needed = std::min(std::max(roundToBlocks(static_cast< size_t >(std::pow((error / d_prec), 2.0) * samples)), 
                                              static_cast< size_t >(1000)), static_cast< size_t >(50000));
-    if (error < d_relprec && !d_rank)
+    if (error < d_prec && !d_rank)
       log() << "  >>  This is sufficient for the currently needed precision.\n" << std::endl;
   }
   

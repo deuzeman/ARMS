@@ -94,18 +94,6 @@ double Discretizer::operator()(unsigned long const &eig, unsigned long const &le
   return (res / d_numBlocks);
 }
 
-double Discretizer::operator()(unsigned long const &eig, unsigned long const &level, unsigned long const &block) const
-{
-  double res = 0.0;
-  for (unsigned long bIdx = 0; bIdx < d_numBlocks; ++bIdx)
-  {
-    if (bIdx == block)
-      continue;
-    res += d_cum_blocks[(bIdx * d_numEigs + eig) * d_numLevels + level];
-  }
-  return (res / (d_numBlocks - 1));
-}
-
 double Discretizer::average(unsigned long const &eig) const
 {
   double res = 0.0;
@@ -114,17 +102,6 @@ double Discretizer::average(unsigned long const &eig) const
   return (res / d_numBlocks);
 }
 
-double Discretizer::average(unsigned long const &eig, unsigned long const &block) const
-{
-  double res = 0.0;
-  for (unsigned long bIdx = 0; bIdx < d_numBlocks; ++bIdx)
-  {
-    if (bIdx == block)
-      continue;
-    res += d_mean_blocks[bIdx * d_numEigs + eig];
-  }
-  return (res / (d_numBlocks - 1));
-}
 
 Discretizer::~Discretizer()
 {

@@ -20,7 +20,7 @@ class Comparator
   size_t  d_eigs;
   int     d_minEv;
  
-  double  d_relprec;
+  double  d_prec;
   size_t  d_blocks;
   
   int     d_rank;
