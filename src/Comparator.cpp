@@ -75,7 +75,8 @@ double Comparator::averages(Point const &point)
     ave /= d_blocks;
     aveSq /= d_blocks;
     
-    std::cout << aveSq << " - " << ave << "^2 = " << (aveSq - ave * ave) << std::endl;
+    if (d_rank == 0)
+      std::cout << aveSq << " - " << ave << "^2 = " << (aveSq - ave * ave) << std::endl;
     error = std::sqrt(aveSq - ave * ave);
     
     if (Log::ionode)
@@ -153,7 +154,9 @@ double Comparator::kolmogorov(Point const &point)
       ave += d_jack[idx];
       aveSq += d_jack[idx] + d_jack[idx];
     }
-    error = std::sqrt((aveSq - ave * ave) / d_blocks);
+    ave /= d_blocks;
+    aveSq /= d_blocks;
+    error = std::sqrt(aveSq - ave * ave);
     
     if (Log::ionode)
       log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;
