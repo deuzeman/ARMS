@@ -42,8 +42,9 @@ void Discretizer::calculate(RanMat const &ranmat)
   {
     unsigned long *pd = data + eig * ranmat.numSamples();
     double const *pb = d_breaks + eig * (d_numLevels - 1);
+    double const *pr = res + eig * ranmat.numSamples();
     for (unsigned long samp = 0; samp < ranmat.numSamples(); ++samp)
-      while ((pd[samp] < (d_numLevels - 1)) && res[samp] > pb[pd[samp]])
+      while ((pd[samp] < (d_numLevels - 1)) && pr[samp] > pb[pd[samp]])
         ++pd[samp];
   }
 
@@ -52,7 +53,7 @@ void Discretizer::calculate(RanMat const &ranmat)
   {
     unsigned long *pd = data + eig * ranmat.numSamples(); 
     for (unsigned long samp = 0; samp < ranmat.numSamples(); ++samp)
-      ++d_hist_blocks[(samp % d_numBlocks) * d_numLevels + pd[samp]];
+      ++d_hist_blocks[((samp % d_numBlocks)  * d_numEigs + eig) * d_numLevels + pd[samp]];
   }
   delete[] data;
   
@@ -77,10 +78,12 @@ void Discretizer::calculate(RanMat const &ranmat)
   delete[] glob_hist_blocks;
   
   // Now create a cumulative distribution from the global histograms
-  for (unsigned long bIdx = 0; bIdx < d_numBlocks; ++bIdx)
+  for (unsigned long block = 0; block < d_numBlocks; ++block)
     for (unsigned long eig = 0; eig < d_numEigs; ++eig)
+    {
       for (unsigned long level = 1; level < d_numLevels; ++level)
-        d_cum_blocks[(bIdx * d_numEigs + eig) * d_numLevels + level] += d_cum_blocks[(bIdx * d_numEigs + eig) * d_numLevels + level - 1];
+        d_cum_blocks[(block * d_numEigs + eig) * d_numLevels + level] += d_cum_blocks[(block * d_numEigs + eig) * d_numLevels + level - 1];
+    }
 }
 
 double Discretizer::operator()(unsigned long const &eig, unsigned long const &level) const

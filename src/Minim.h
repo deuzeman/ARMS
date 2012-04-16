@@ -22,5 +22,5 @@ class Minim
 // NOTE Test: start out using the average, rather than the KS D value.
 
 inline Minim::Minim(Data &data, Params &params)
-  : d_alpha(1.0), d_gamma(2.0), d_rho(-0.5), d_sigma(0.5), d_simplex(data, params, AVE)
+  : d_alpha(1.0), d_gamma(2.0), d_rho(-0.5), d_sigma(0.5), d_simplex(data, params, KOL)
 {}

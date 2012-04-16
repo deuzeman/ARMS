@@ -57,8 +57,11 @@ double Comparator::averages(Point const &point)
     for (size_t eig = 0; eig < d_eigs; ++eig)
     {
       double pred = d_disc.average(eig);
-      std::cout << "For eigenvalue " << eig << ": measurement = " << d_aver[eig] << ", prediction = " << pred << std::endl;
-      std::cout << "                              relative deviation " << ((pred - d_aver[eig]) / d_aver[eig]) << std::endl;
+      if (d_rank == 0)
+      {
+	std::cout << "For eigenvalue " << eig << ": measurement = " << d_aver[eig] << ", prediction = " << pred << std::endl;
+	std::cout << "                              relative deviation " << ((pred - d_aver[eig]) / d_aver[eig]) << std::endl;
+      }
       result += std::pow((pred - d_aver[eig]) / d_aver[eig], 2.0);
     }
     
@@ -118,22 +121,30 @@ double Comparator::kolmogorov(Point const &point)
     {
       d_jack[blockIdx] = 0.0;
       for (size_t eig = 0; eig < d_eigs; ++eig)
+      {
+	double qq = 0.0;
         for (size_t samp = 0; samp < d_levels; ++samp)
         {
           double cc = std::abs(d_disc(eig, samp, blockIdx) - samp * d_inc);
-            d_jack[blockIdx] += cc;
+          qq = std::max(qq, cc);
         }
-      d_jack[blockIdx] /= (d_levels * d_eigs);
+        d_jack[blockIdx] += qq;
+      }
+      d_jack[blockIdx] /= d_eigs;
     }
     
     result = 0.0;
     for (size_t eig = 0; eig < d_eigs; ++eig)
+    {
+      double qq = 0.0;
       for (size_t samp = 1; samp < d_levels; ++samp)
       {
         double cc = std::abs(d_disc(eig, samp) - samp * d_inc);
-          result += cc;
+        qq = std::max(qq, cc);
       }
-      result /= (d_levels * d_eigs);
+      result += qq;
+    }
+    result /= d_eigs;
       
     // Now calculate the relative error
     // Remember: this is a jackknife, so we *sum* over differences squared and do the rescaling
