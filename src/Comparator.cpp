@@ -32,7 +32,7 @@ double Comparator::averages(Point const &point)
   size_t samples = 0;
   
   d_disc.clear();
-  while (error > d_prec)
+  while ((error > d_prec) && samples < 1000000)
   {
     if (Log::ionode)
       log() << "  >>  Requesting " << needed << " samples." << std::endl;
@@ -89,6 +89,9 @@ double Comparator::averages(Point const &point)
     if (error < d_prec && !d_rank)
       log() << "  >>  This is sufficient for the currently needed precision.\n" << std::endl;
   }
+  if (samples > 1000000)
+    if (Log::ionode)
+      log() << " >> [WARNING] Sample number exceeding 1M!\n" << std::endl;
   return result;
 }
 
@@ -105,7 +108,7 @@ double Comparator::kolmogorov(Point const &point)
   double result = 0.0;
 
   d_disc.clear();
-  while (error > d_prec)
+  while (error > d_prec && samples < 1000000)
   {
     if (Log::ionode)
       log() << "  >>  Requesting " << needed << " samples." << std::endl;
@@ -167,7 +170,9 @@ double Comparator::kolmogorov(Point const &point)
     if (error < d_prec && !d_rank)
       log() << "  >>  This is sufficient for the currently needed precision.\n" << std::endl;
   }
-  
+  if (samples > 1000000)
+    if (Log::ionode)
+      log() << " >> [WARNING] Sample number exceeding 1M!\n" << std::endl;
   return result;
 }
 

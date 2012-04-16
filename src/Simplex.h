@@ -89,7 +89,7 @@ inline double const &Simplex::value(size_t index) const
 
 inline bool Simplex::converged() const
 {
-  return (((*d_values[d_dim - 1] - *d_values[0]) / *d_values[0]) < d_prec);
+  return ((*d_values[d_dim - 1] - *d_values[0]) < d_prec);
 }
 
 inline void Simplex::writeProposal() const

@@ -62,7 +62,7 @@ Simplex const &Minim::reduce()
       log() << "== CONTRACT ==\n";
     loc = d_simplex.constructProposal(d_rho); // Contract
 
-    if (loc > d_simplex.dimension())
+    if (loc < d_simplex.dimension())
     {
       if (Log::ionode)
         log() << "Contraction accepted.\n";
