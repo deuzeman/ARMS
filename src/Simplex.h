@@ -48,6 +48,7 @@ class Simplex
     double const &value(size_t index) const;
     
     bool converged() const;
+    Point average();
     
     void writeProposal() const;
     void setWeight(Weight w);

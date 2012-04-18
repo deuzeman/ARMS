@@ -26,6 +26,10 @@ class Comparator
   int     d_rank;
   int     d_nodes;
   
+  Point  const *d_point;
+  double        d_result;
+  double        d_error;
+  
   // The following provides scratch space
   Discretizer d_disc;
   double *d_jack;  
@@ -38,10 +42,18 @@ class Comparator
     double averages(Point const &point);
     
     size_t roundToBlocks(size_t in) const;
+    double const *result() const;
+    
+    void writeCumulative() const;
 };
 
 inline size_t Comparator::roundToBlocks(size_t in) const
 {
   // Give an alignment such that we always have a multiple of blocks samples per node.
   return ((((static_cast< int >(in) - 1) / (d_blocks * d_nodes)) + 1) * (d_blocks * d_nodes));
+}
+
+inline double const *Comparator::result() const
+{
+  return d_ranmat.result();
 }

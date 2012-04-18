@@ -3,16 +3,13 @@
 #include <Log.h>
 
 Simplex::Simplex(Data &data, Params &params, Weight w)
-: d_dim(0), d_prec(params.prec), d_comp(data, params), d_values(0), d_weight(w)
+: d_dim(params.dim), d_prec(params.prec), d_comp(data, params), d_values(0), d_weight(w)
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
   
   if (Log::ionode)
     log() << "Setting up initial simplex, using: " << std::endl;
-  for (size_t idx = 0; idx < 6; ++idx)
-    d_active[idx] = (std::abs(params.scale.coord[idx] / params.center.coord[idx]) > 1e-6);
-  for (size_t idx = 0; idx < 6; ++idx)
-    d_dim += d_active[idx] ? 1 : 0;
+  std::copy(params.active, params.active + 5, d_active);
   
   d_points = new Point*[d_dim];
   std::fill_n(d_points, d_dim, static_cast< Point* >(0));
@@ -21,7 +18,8 @@ Simplex::Simplex(Data &data, Params &params, Weight w)
   // Span the system from lower to upper for all active components
   d_points[0] = new Point(params.center);
   Point subt(params.scale);
-  subt /= (d_dim - 1.0);
+  if (d_dim > 1)
+    subt /= (d_dim - 1.0);
   *d_points[0] -= subt;
   size_t actIdx = 0;
   for (size_t idx = 1; idx < d_dim; ++idx)
@@ -215,4 +213,17 @@ void Simplex::setWeight(Weight w)
     d_weight = w;
     recalculate();
   }
+}
+
+Point Simplex::average()
+{
+  Point result(*d_points[0]);
+  for (size_t idx = 1; idx < d_dim; ++idx)
+    result += *d_points[idx];
+  result /= d_dim;
+  
+  if (d_dim > 1)
+    getVal(result);
+  d_comp.writeCumulative();
+  return result;
 }

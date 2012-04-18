@@ -1,7 +1,9 @@
 #include <Point.h>
 
 Point::Point()
-{}
+{
+  std::fill_n(coord, 5, 0.0);
+}
 
 Point::Point(double sigma, double m, double a6, double a7, double a8)
 {

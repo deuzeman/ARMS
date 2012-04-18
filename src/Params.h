@@ -22,6 +22,11 @@ class XLat
       d_data >> result;
       return result;
     }
+    
+    bool good() const
+    {
+      return d_data.good();
+    }
 };
 
 struct Params
@@ -41,7 +46,9 @@ struct Params
   int eigMin;
   int eigMax;
   
-  size_t iter;
+  bool active[5];
+  unsigned int dim;
+  unsigned int iter;
 
-  Params(char const *filename, bool scales = false);
+  Params(char const *filename);
 };

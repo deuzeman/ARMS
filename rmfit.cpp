@@ -41,7 +41,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  Params params(argv[1], true);
+  Params params(argv[1]);
   
   Log::open(params.output.c_str());
   
@@ -51,16 +51,30 @@ int main(int argc, char **argv)
           << "Parameters provided:\n"
           << "  N      = " << params.N << '\n'
           << "  nu     = " << params.nu << '\n'
-          << "  sigma  = " << params.center.coord[0] << '\t' << params.scale.coord[0] << '\n'
-          << "  m      = " << params.center.coord[1] << '\t' << params.scale.coord[1] << '\n'
-          << "  a6     = " << params.center.coord[2] << '\t' << params.scale.coord[2] << '\n'
-          << "  a7     = " << params.center.coord[3] << '\t' << params.scale.coord[3] << '\n'
-          << "  a8     = " << params.center.coord[4] << '\t' << params.scale.coord[4] << '\n'
-          << "  blocks = " << params.blocks << '\n'
+          << "  sigma  = " << params.center.coord[0];
+    if (params.active[0])
+      log() << '\t' << params.scale.coord[0];
+    log() << "\n  m      = " << params.center.coord[1];
+    if (params.active[1])
+      log() << '\t' << params.scale.coord[1];
+    log() << "\n  a6     = " << params.center.coord[2];
+    if (params.active[2])
+      log() << '\t' << params.scale.coord[2];
+    log() << "\n  a7     = " << params.center.coord[3];
+    if (params.active[3])
+      log() << '\t' << params.scale.coord[3];
+    log() << "\n  a8     = " << params.center.coord[4];
+    if (params.active[4])
+      log() << '\t' << params.scale.coord[4];
+    log() << "\n  blocks = " << params.blocks << '\n'
           << "  prec   = " << params.prec << '\n'
           << "  data   = " << params.data << '\n'
-          << "  output = " << params.output << '\n' 
-          << "\nRun on " << nodes << " nodes." << std::endl;
+          << "  output = " << params.output << std::endl;
+    if (params.dim == 1)
+      log() << "There are no degrees of freedom in the fit,\n"
+            << "so this run will just determine the results\n"
+            << "for the parameters given above." << std::endl;
+    log() << "Run on " << nodes << " nodes." << std::endl;
   }
   
   Data data(params.data.c_str());

@@ -17,19 +17,32 @@ static void cleanLine(std::string &line, char const *buff)
   char clBuff[256];
   char *cpb = clBuff;
   
+  // Add code to trim the string at the end, or istringstream will not set the EOF flag correctly
+  char const *pbl = buff;
+  while (*pbl != '\0')
+    ++pbl;
+  while ((*pbl == '\0') || (*pbl == '\t' ) || (*pbl == '\n' ) || (*pbl == ' '))
+    --pbl;
+  ++pbl;
+  
   bool before = true;
   bool clear = true;
-  for (char const *pb = buff; *pb != '\0'; ++pb)
+  for (char const *pb = buff; pb != pbl; ++pb)
   {
-    if (clear && ((*pb == '\t' ) || (*pb == '\n' ) || (*pb == ' ' )))
+    bool white = ((*pb == '\t' ) || (*pb == '\n' ) || (*pb == ' ' ));
+    
+    if (clear && white)
       continue;
 
     if (!before)
-      clear = false;
-    
+      clear = white; // Remove if subsequent whitespace!
+      
     if (*pb == '=')
+    {
       before = false;
-    
+      clear = true;
+    }
+       
     *cpb = *pb;
     ++cpb;
   }
@@ -37,7 +50,8 @@ static void cleanLine(std::string &line, char const *buff)
   line.assign(clBuff);
 }
 
-Params::Params(char const *filename, bool scales)
+Params::Params(char const *filename)
+  : dim(1)
 {
   int nodes;
   int rank;
@@ -47,6 +61,8 @@ Params::Params(char const *filename, bool scales)
   std::ifstream input;
   char line[256];
   std::string sline;
+  std::fill_n(active, 5, false);
+  std::fill_n(scale.coord, 5, 0.0);
   
   if (rank == 0)
   {
@@ -54,7 +70,7 @@ Params::Params(char const *filename, bool scales)
   
     while(input.getline(line, 256))
     {
-       cleanLine(sline, line);
+      cleanLine(sline, line);
 
       if (sline.find("N=") != sline.npos)
       {
@@ -72,8 +88,12 @@ Params::Params(char const *filename, bool scales)
       {
         XLat sigma(sline.c_str() + 6);
         center.coord[0] = sigma;
-        if (scales)
+        if (sigma.good())
+        {
+          ++dim;
+          active[0] = true;
           scale.coord[0] = sigma;
+        }
         continue;
       }
 
@@ -81,8 +101,12 @@ Params::Params(char const *filename, bool scales)
       {
         XLat mass(sline.c_str() + 2);
         center.coord[1] = mass;
-        if (scales)
+        if (mass.good())
+        {
+          ++dim;
+          active[1] = true;
           scale.coord[1] = mass;
+        }
         continue;
       }
       
@@ -90,8 +114,12 @@ Params::Params(char const *filename, bool scales)
       {
         XLat a6(sline.c_str() + 3);
         center.coord[2] = a6;
-        if (scales)
+        if (a6.good())
+        {
+          ++dim;
+          active[2] = true;
           scale.coord[2] = a6;
+        }
         continue;
       }
       
@@ -99,8 +127,12 @@ Params::Params(char const *filename, bool scales)
       {
         XLat a7(sline.c_str() +3);
         center.coord[3] = a7;
-        if (scales)
+        if (a7.good())
+        {
+          ++dim;
+          active[3] = true;
           scale.coord[3] = a7;
+        }
         continue;
       }
 
@@ -108,8 +140,12 @@ Params::Params(char const *filename, bool scales)
       {
         XLat a8(sline.c_str() + 3);
         center.coord[4] = a8;
-        if (scales)
+        if (a8.good())
+        {
+          ++dim;
+          active[4] = true;
           scale.coord[4] = a8;
+        }
         continue;
       }
       
@@ -208,8 +244,7 @@ Params::Params(char const *filename, bool scales)
   blocks = static_cast< size_t >(temp);
   
   MPI_Bcast(center.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-  if (scales)
-    MPI_Bcast(scale.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(scale.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(&prec, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(&eigMin, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(&eigMax, 1, MPI_INT, 0, MPI_COMM_WORLD);

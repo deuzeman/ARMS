@@ -22,7 +22,10 @@ Simplex const &Minim::reduce()
         continue;
       }
       if (Log::ionode)
-        log() << "Simplex values indicate convergence!\nFinal solution:\n" << d_simplex << std::endl;
+      {
+        log() << "Simplex values indicate convergence!\nFinal simplex:\n" << d_simplex << std::endl;
+        log() << "This would suggest a final result of " << d_simplex.average() << std::endl;
+      }
       break;
     }
     
