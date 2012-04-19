@@ -34,7 +34,7 @@ double Comparator::averages(Point const &point)
   size_t samples = 0;
   d_error = 1.0;  
   d_disc.clear();
-  while ((d_error > d_prec) && samples < 1000000)
+  while ((d_error > d_prec) && samples < 2500000)
   {
     if (Log::ionode)
       log() << "  >>  Requesting " << needed << " samples." << std::endl;
