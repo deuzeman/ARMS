@@ -7,7 +7,7 @@ Simplex const &Minim::reduce()
     log() << "\nStarting minimization routine!\n\n";
   for (size_t iter = 0; iter < 500; ++iter)
   {
-    if (Log::ionode) 
+    if (Log::ionode)
       log() << "At iteration " << iter << ":\n" << d_simplex;
     // Check if this is already a solution to the problem
     if (d_simplex.converged())
@@ -28,22 +28,22 @@ Simplex const &Minim::reduce()
       }
       break;
     }
-    
+
     Point proposed;
     if (Log::ionode)
       log() << "== REFLECT ==\n";
     size_t loc = d_simplex.constructProposal(d_alpha); // Reflect
-    
+
     // Is it the best point so far? Then extend and see what happens!
     // Either way, we've made a major step and we can drop the worst value.
     // We can just drop through to the next if-case
-    if (loc == 0) 
+    if (loc == 0)
     {
       if (Log::ionode)
         log() << "== EXTEND ==\n";
       d_simplex.improveProposal(d_gamma); // Extend
     }
-    
+
     // Is our proposal better than the second worst? That'll do us fine, get rid of the worst one and repeat
     if (loc < (d_simplex.dimension() - 1))
     {

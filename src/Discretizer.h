@@ -5,7 +5,8 @@
 
 class Discretizer
 {
-  int    d_nodes;
+  int d_rank;
+  int d_nodes;
   
   unsigned long d_numEigs;
   unsigned long d_numBlocks;

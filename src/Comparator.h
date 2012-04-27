@@ -14,6 +14,7 @@ class Comparator
   RanMat  d_ranmat;
   
   double *d_breaks;
+  size_t  d_sampMax;
   double *d_aver;
   size_t  d_levels;
   double  d_inc;

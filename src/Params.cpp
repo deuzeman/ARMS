@@ -229,19 +229,23 @@ Params::Params(char const *filename)
   
   int temp = static_cast< int >(N);
   MPI_Bcast(&temp, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  N = static_cast< size_t >(temp);
+  N = static_cast< unsigned int >(temp);
+
+  temp = static_cast< int >(dim);
+  MPI_Bcast(&temp, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  dim = static_cast< unsigned int >(temp);
   
   temp = static_cast< int >(nu);
   MPI_Bcast(&temp, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  nu = static_cast< size_t >(temp);
+  nu = static_cast< unsigned int >(temp);
   
   temp = static_cast< int >(iter);
   MPI_Bcast(&temp, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  iter = static_cast< size_t >(temp);
+  iter = static_cast< unsigned int >(temp);
   
   temp = static_cast< int >(blocks);
   MPI_Bcast(&temp, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  blocks = static_cast< size_t >(temp);
+  blocks = static_cast< unsigned int >(temp);
   
   MPI_Bcast(center.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(scale.coord, 5, MPI_DOUBLE, 0, MPI_COMM_WORLD);

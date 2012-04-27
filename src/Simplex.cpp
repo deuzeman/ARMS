@@ -6,15 +6,15 @@ Simplex::Simplex(Data &data, Params &params, Weight w)
 : d_dim(params.dim), d_prec(params.prec), d_comp(data, params), d_values(0), d_weight(w)
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
-  
+
   if (Log::ionode)
     log() << "Setting up initial simplex, using: " << std::endl;
   std::copy(params.active, params.active + 5, d_active);
-  
+
   d_points = new Point*[d_dim];
   std::fill_n(d_points, d_dim, static_cast< Point* >(0));
   d_values = 0;
-  
+
   // Span the system from lower to upper for all active components
   d_points[0] = new Point(params.center);
   Point subt(params.scale);
@@ -32,7 +32,7 @@ Simplex::Simplex(Data &data, Params &params, Weight w)
   }
   for (size_t idx = 0; idx < d_dim; ++idx)
     d_points[idx]->nonNegative();
-  
+
   if (Log::ionode)
   {
     log() << *this << std::endl;
@@ -40,7 +40,7 @@ Simplex::Simplex(Data &data, Params &params, Weight w)
   // better than we would like this minimization to be.
     log() << "Calculating associated values.\n" << std::endl;
   }
-  recalculate();  
+  recalculate();
   if (Log::ionode)
     log() << "Ordered simplex ready!\n" << std::endl;
 }
@@ -64,9 +64,10 @@ void Simplex::recalculate()
     for (size_t idx = 0; idx < d_dim; ++idx)
       d_values[idx] = new double;
   }
+  int sizes = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &sizes);
   for (size_t idx = 0; idx < d_dim; ++idx)
     *d_values[idx] = getVal(*d_points[idx]);
-
   sort();
   calcCenterOfGravity();
 }
@@ -85,12 +86,12 @@ double Simplex::getVal(Point const &point)
 }
 
 void Simplex::sort()
-{ 
+{
   for (size_t idx = 0; idx < d_dim - 1; ++idx)
   {
     size_t best = idx;
     double bestVal = *d_values[idx];
-    
+
     for (size_t run = idx + 1; run < d_dim; ++run)
       if (*d_values[run] < bestVal)
       {
