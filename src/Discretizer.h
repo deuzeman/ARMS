@@ -19,6 +19,7 @@ class Discretizer
   
   double *d_mean_blocks;
   double *d_cum_blocks;
+  double *d_cum_total;
   
   public:
     Discretizer(double *breaks, unsigned long numBreaks, unsigned long numEigs, unsigned long blocks);
@@ -26,16 +27,21 @@ class Discretizer
     
     void clear();
     void calculate(RanMat const &ranmat);
-    double operator()(unsigned long const &level) const;
-    double operator()(unsigned long const &level, unsigned long const &block) const;
+    double operator()(unsigned long const &eig, unsigned long const &level) const;
+    double operator()(unsigned long const &eig, unsigned long const &level, unsigned long const &block) const;
     
     double average(unsigned long const &eig) const;
     double average(unsigned long const &eig, unsigned long const &block) const;
 };
 
-inline double Discretizer::operator()(unsigned long const &level, unsigned long const &block) const
+inline double Discretizer::operator()(unsigned long const &eig, unsigned long const &level) const
 {
-  return d_cum_blocks[block * d_numLevels + level];
+  return (d_cum_total[eig * d_numLevels + level] / d_numBlocks);
+}
+
+inline double Discretizer::operator()(unsigned long const &eig, unsigned long const &level, unsigned long const &block) const
+{
+  return ((d_cum_total[eig * d_numLevels + level] - d_cum_blocks[block * d_numLevels * d_numEigs + eig * d_numLevels + level]) / (d_numBlocks - 1));
 }
 
 inline double Discretizer::average(unsigned long const &eig, unsigned long const &block) const

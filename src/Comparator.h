@@ -17,17 +17,18 @@ class Comparator
   size_t  d_levels;
   double  d_inc;
   size_t  d_eigs;
-  int     d_minEv;
+  int      d_minEv;
  
   double  d_prec;
   size_t  d_blocks;
   
   int     d_rank;
   int     d_nodes;
-  
+
   // The following provides scratch space
   Discretizer d_disc;
   double *d_jack;  
+  double *d_cumdist;
   
   public:
     Comparator(Data &data, Params &params);

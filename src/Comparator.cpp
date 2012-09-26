@@ -6,14 +6,15 @@
 Comparator::Comparator(Data &data, Params &params)
 : d_ranmat(params.N, params.nu, data.minEv(), data.maxEv()), 
   d_aver(data.average()),
-  d_levels((data.numSamples() + 1) * data.numCols()), 
-  d_inc(1.0 / (data.numSamples() * data.numCols())), 
+  d_levels(data.numSamples() + 1), 
+  d_inc(1.0 / data.numSamples()), 
   d_eigs(data.numCols()), 
   d_minEv(data.minEv()),
   d_blocks(params.blocks),
   d_prec(0.5 * params.prec), 
-  d_disc(data.flat(), data.numSamples() * d_eigs, d_eigs, d_blocks),
-  d_jack(new double[d_blocks])
+  d_disc(data.flatPerColumn(), data.numSamples(), d_eigs, d_blocks),
+  d_jack(new double[d_blocks]),
+  d_cumdist(new double[d_levels])
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &d_nodes);
@@ -35,8 +36,8 @@ double Comparator::averages(Point const &point)
   {
     if (Log::ionode)
       log() << "  >>  Requesting " << needed << " samples." << std::endl;
-      // Calculate as much data as we think we will require
 
+      // Calculate as much data as we think we will require
     d_ranmat.calculate(point, needed);
     samples += needed;
     d_disc.calculate(d_ranmat);
@@ -63,7 +64,7 @@ double Comparator::averages(Point const &point)
       result += std::pow((pred - d_aver[eig]) / d_aver[eig], 2.0);
     }
     
-    // Now calculate the relative error
+    // Now calculate the absolute error
     double ave = 0.0;
     double aveSq = 0.0;
     for (size_t bIdx = 0; bIdx < d_blocks; ++bIdx)  
@@ -107,39 +108,42 @@ double Comparator::kolmogorov(Point const &point)
   double result = 0.0;
 
   d_disc.clear();
+
+
   while (error > d_prec && samples < 1000000)
   {
     if (Log::ionode)
       log() << "  >>  Requesting " << needed << " samples." << std::endl;
+
     // Calculate as much data as we think we will require
     d_ranmat.calculate(point, needed);
     samples += needed;
     d_disc.calculate(d_ranmat);
 
+    // Extract the jackknife samples
     for (size_t block = 0; block < d_blocks; ++block)
     {
       d_jack[block] = 0.0;
-      for (size_t samp = 0; samp < d_levels; ++samp)
-	d_jack[block] = std::max(d_jack[block], std::abs(d_disc(samp, block) - samp * d_inc));
+      for (size_t eig = 0; eig < d_eigs; ++eig)
+        for (size_t samp = 0; samp < d_levels; ++samp)
+          d_jack[block] = std::max(d_jack[block], std::abs(d_disc(eig, samp, block) - samp * d_inc));
     }
     
     result = 0.0;
-    for (size_t samp = 1; samp < d_levels; ++samp)
-      result = std::max(result, std::abs(d_disc(samp) - samp * d_inc));
+    for (size_t eig = 0; eig < d_eigs; ++eig)
+      for (size_t samp = 0; samp < d_levels; ++samp)
+        result = std::max(result, std::abs(d_disc(eig, samp) - samp * d_inc));
       
-    // Now calculate the relative error
+    // Now calculate the absolute error
     // Remember: this is a jackknife, so we *sum* over differences squared and do the rescaling
-    double ave = 0.0;
-    double aveSq = 0.0;
+    double error = 0.0;
     for (size_t idx = 0; idx < d_blocks; ++idx)
     {
-      ave += d_jack[idx];
-      aveSq += d_jack[idx] * d_jack[idx];
+      error += (d_jack[idx] - result) * (d_jack[idx] - result);
     }
-    ave /= d_blocks;
-    aveSq /= d_blocks;
-    error = std::sqrt((aveSq - ave * ave) / d_blocks);
-    
+    error *= (d_blocks - 1.0) / d_blocks;
+    error = std::sqrt(error);
+
     if (Log::ionode)
       log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;
     
