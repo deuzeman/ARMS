@@ -11,7 +11,8 @@ Comparator::Comparator(Data &data, Params &params)
   d_eigs(data.numCols()), 
   d_minEv(data.minEv()),
   d_blocks(params.blocks),
-  d_prec(0.5 * params.prec), 
+  d_prec(0.5 * params.prec),
+  d_type(AVE),
   d_disc(data.flatPerColumn(), data.numSamples(), d_eigs, d_blocks),
   d_jack(new double[d_blocks]),
   d_cumdist(new double[d_levels])
@@ -20,10 +21,18 @@ Comparator::Comparator(Data &data, Params &params)
   MPI_Comm_size(MPI_COMM_WORLD, &d_nodes);
 }
 
-double Comparator::kolmogorov(Point const &point)
+double Comparator::deviation(Point const &point)
 {
   if (Log::ionode)
-    log() << "  >>  Calculating Kolmogorov-Smirnov D for " << point << std::endl;
+    log() << "  >>  Calculating deviation for " << point << std::endl;
+
+  if (Log::ionode)
+  {
+    if (d_type == AVE)
+      log() << "  >>  Calculating peak average chi squared." << std::endl;
+    else
+      log() << "  >>  Calculating Kolmogorov-Smirnov D." << std::endl;
+  }
   
   // Set up some data structure for the algorithms
   double error = 1.0;
@@ -33,7 +42,6 @@ double Comparator::kolmogorov(Point const &point)
   double result = 0.0;
 
   d_disc.clear();
-
 
   while ((error > d_prec) && (samples < 1000000))
   {
@@ -45,20 +53,36 @@ double Comparator::kolmogorov(Point const &point)
     samples += needed;
     d_disc.calculate(d_ranmat);
 
+    // Calculate the main result
+    result = 0.0;
+    if (d_type == AVE)
+      for (size_t eig = 0; eig < d_eigs; ++eig)
+      {
+        double chi = d_disc.aver(eig) - d_aver(eig);
+        result += chi * chi;
+      }
+    else
+      for (size_t eig = 0; eig < d_eigs; ++eig)
+        for (size_t samp = 0; samp < d_levels; ++samp)
+          result = std::max(result, std::abs(d_disc(eig, samp) - samp * d_inc));
+      
+
+
     // Extract the jackknife samples
     for (size_t block = 0; block < d_blocks; ++block)
     {
       d_jack[block] = 0.0;
       for (size_t eig = 0; eig < d_eigs; ++eig)
         for (size_t samp = 0; samp < d_levels; ++samp)
-          d_jack[block] = std::max(d_jack[block], std::abs(d_disc(eig, samp, block) - samp * d_inc));
+	  if (d_type == AVE)
+          {
+            double chi = d_disc.aver(eig, block) - d_aver(eig);
+            d_jack[block] += chi * chi;
+          }
+          else
+            d_jack[block] = std::max(d_jack[block], std::abs(d_disc(eig, samp, block) - samp * d_inc));
     }
-    
-    result = 0.0;
-    for (size_t eig = 0; eig < d_eigs; ++eig)
-      for (size_t samp = 0; samp < d_levels; ++samp)
-        result = std::max(result, std::abs(d_disc(eig, samp) - samp * d_inc));
-      
+          
     // Now calculate the absolute error
     // Remember: this is a jackknife, so we *sum* over differences squared and do the rescaling
     error = 0.0;

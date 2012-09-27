@@ -11,19 +11,24 @@
 
 class Comparator
 {
+  int const AVE = 0;
+  int const KOL = 1;
+
   RanMat  d_ranmat;
   
   double *d_aver;
   size_t  d_levels;
   double  d_inc;
   size_t  d_eigs;
-  int      d_minEv;
+  int     d_minEv;
  
   double  d_prec;
   size_t  d_blocks;
   
   int     d_rank;
   int     d_nodes;
+
+  int    d_type;
 
   // The following provides scratch space
   Discretizer d_disc;
