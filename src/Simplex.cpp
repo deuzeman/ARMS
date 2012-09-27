@@ -79,8 +79,6 @@ double Simplex::getVal(Point const &point)
   {
     case KOL:
       return d_comp.kolmogorov(point);
-    case AVE:
-      return d_comp.averages(point);
     default:
       return (-1.0);
   }

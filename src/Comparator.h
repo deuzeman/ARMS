@@ -35,7 +35,6 @@ class Comparator
     ~Comparator();
     
     double kolmogorov(Point const &point);
-    double averages(Point const &point);
     
     size_t roundToBlocks(size_t in) const;
 };
