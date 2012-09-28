@@ -2,8 +2,8 @@
 #include <iomanip>
 #include <Log.h>
 
-Simplex::Simplex(Data &data, Params &params, Weight w)
-: d_dim(0), d_prec(params.prec), d_comp(data, params), d_values(0), d_weight(w)
+Simplex::Simplex(Data &data, Params &params)
+: d_dim(0), d_prec(params.prec), d_comp(data, params), d_values(0)
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
   
@@ -79,6 +79,7 @@ double Simplex::getVal(Point const &point)
   {
     case KOL:
       return d_comp.kolmogorov(point);
+    case AVE:
     default:
       return (-1.0);
   }

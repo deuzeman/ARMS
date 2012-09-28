@@ -11,24 +11,28 @@
 
 class Comparator
 {
-  int const AVE = 0;
-  int const KOL = 1;
+  public:
+    static int const AVE = 0;
+    static int const KOL = 1;
 
-  RanMat  d_ranmat;
+  private:
+    RanMat  d_ranmat;
   
-  double *d_aver;
-  size_t  d_levels;
-  double  d_inc;
-  size_t  d_eigs;
-  int     d_minEv;
+    double *d_aver;
+    double *d_av_err;  
+
+    size_t  d_levels;
+    double  d_inc;
+    size_t  d_eigs;
+    int     d_minEv;
  
-  double  d_prec;
-  size_t  d_blocks;
+    double  d_prec;
+    size_t  d_blocks;
   
-  int     d_rank;
-  int     d_nodes;
+    int     d_rank;
+    int     d_nodes;
 
-  int    d_type;
+    int    d_type;
 
   // The following provides scratch space
   Discretizer d_disc;
@@ -39,13 +43,26 @@ class Comparator
     Comparator(Data &data, Params &params);
     ~Comparator();
     
-    double kolmogorov(Point const &point);
+    double deviation(Point const &point);
     
     size_t roundToBlocks(size_t in) const;
+
+    void setType(int type);
+    int type() const;
 };
 
 inline size_t Comparator::roundToBlocks(size_t in) const
 {
   // Give an alignment such that we always have a multiple of blocks samples per node.
   return ((((static_cast< int >(in) - 1) / (d_blocks * d_nodes)) + 1) * (d_blocks * d_nodes));
+}
+
+inline void Comparator::setType(int type)
+{
+  d_type = type;
+}
+
+inline int Comparator::type() const
+{
+  return d_type;
 }

@@ -18,6 +18,7 @@ class Discretizer
   unsigned long *d_hist_blocks;
   
   double *d_mean_blocks;
+  double *d_mean_total;
   double *d_cum_blocks;
   double *d_cum_total;
   
@@ -44,7 +45,13 @@ inline double Discretizer::operator()(unsigned long const &eig, unsigned long co
   return ((d_cum_total[eig * d_numLevels + level] - d_cum_blocks[block * d_numLevels * d_numEigs + eig * d_numLevels + level]) / (d_numBlocks - 1));
 }
 
+inline double Discretizer::average(unsigned long const &eig) const
+{
+  return d_mean_total[eig];
+}
+
 inline double Discretizer::average(unsigned long const &eig, unsigned long const &block) const
 {
-  return d_mean_blocks[block * d_numEigs + eig];
+  return ((d_mean_total[eig] - d_mean_blocks[block * d_numEigs + eig]) / (d_numBlocks - 1));
 }
+

@@ -6,6 +6,7 @@
 Comparator::Comparator(Data &data, Params &params)
 : d_ranmat(params.N, params.nu, data.minEv(), data.maxEv()), 
   d_aver(data.average()),
+  d_av_err(data.error()),
   d_levels(data.numSamples() + 1), 
   d_inc(1.0 / data.numSamples()), 
   d_eigs(data.numCols()), 
@@ -58,29 +59,31 @@ double Comparator::deviation(Point const &point)
     if (d_type == AVE)
       for (size_t eig = 0; eig < d_eigs; ++eig)
       {
-        double chi = d_disc.aver(eig) - d_aver(eig);
+        double chi = d_disc.average(eig) - d_aver[eig];
         result += chi * chi;
       }
     else
       for (size_t eig = 0; eig < d_eigs; ++eig)
         for (size_t samp = 0; samp < d_levels; ++samp)
           result = std::max(result, std::abs(d_disc(eig, samp) - samp * d_inc));
-      
-
 
     // Extract the jackknife samples
     for (size_t block = 0; block < d_blocks; ++block)
     {
       d_jack[block] = 0.0;
       for (size_t eig = 0; eig < d_eigs; ++eig)
-        for (size_t samp = 0; samp < d_levels; ++samp)
-	  if (d_type == AVE)
-          {
-            double chi = d_disc.aver(eig, block) - d_aver(eig);
-            d_jack[block] += chi * chi;
-          }
-          else
+      {
+        if (d_type == AVE)
+        {
+          double chi = (d_disc.average(eig, block) - d_aver[eig]) / d_av_err[eig];
+          d_jack[block] += chi * chi;
+        }
+        else
+        {
+          for (size_t samp = 0; samp < d_levels; ++samp)
             d_jack[block] = std::max(d_jack[block], std::abs(d_disc(eig, samp, block) - samp * d_inc));
+        }
+      }
     }
           
     // Now calculate the absolute error
@@ -113,4 +116,7 @@ double Comparator::deviation(Point const &point)
 Comparator::~Comparator()
 {
   delete[] d_jack;
+  delete[] d_aver;
+  delete[] d_av_err;
 }
+

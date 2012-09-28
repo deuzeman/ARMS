@@ -18,12 +18,14 @@ class Data
   double d_normalization;
 
   Eigen::ArrayXd  d_average;
+  Eigen::ArrayXd  d_error;
   Eigen::ArrayXXd d_cumulant;
 
   public:
     Data(char const *filename);
 
     double *average() const;
+    double *error() const;
     Eigen::ArrayXXd const &cumulant() const;
 
     int minEv() const;

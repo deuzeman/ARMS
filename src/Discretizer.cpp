@@ -13,6 +13,7 @@ Discretizer::Discretizer(double *breaks, unsigned long numBreaks, unsigned long 
    d_hist_blocks = new unsigned long[d_numLevels * d_numEigs * d_numBlocks];
    d_cum_blocks = new double[d_numLevels * d_numEigs * d_numBlocks];
 
+   d_mean_total = new double[d_numEigs];
    d_cum_total = new double[d_numLevels * d_numEigs];
 
    clear();
@@ -74,8 +75,12 @@ void Discretizer::calculate(RanMat const &ranmat)
   d_sampTotal += d_nodes * ranmat.numSamples();
   double avfac = static_cast< double >(d_numBlocks) / d_sampTotal;
 
-  for (unsigned long idx = 0; idx < d_numEigs * d_numBlocks; ++idx)
-    d_mean_blocks[idx] *= avfac;  
+  for (unsigned long eig = 0; eig < d_numEigs; ++eig)
+    for (unsigned long block = 0; block < d_numBlocks; ++block)
+    {
+      d_mean_blocks[block * d_numEigs + eig] *= avfac;
+      d_mean_total[eig] += d_mean_blocks[block * d_numEigs + eig] / d_numBlocks;
+    }
   
   // Aggregate the histograms globally
   unsigned long *glob_hist_blocks = new unsigned long[d_numLevels * d_numEigs * d_numBlocks];
@@ -98,15 +103,6 @@ void Discretizer::calculate(RanMat const &ranmat)
     for (unsigned long idx = 0; idx < d_numLevels * d_numEigs; ++idx)
       d_cum_total[idx] += d_cum_blocks[block * d_numLevels * d_numEigs + idx];
 }
-
-double Discretizer::average(unsigned long const &eig) const
-{
-  double res = 0.0;
-  for (unsigned long block = 0; block < d_numBlocks; ++block)
-    res += d_mean_blocks[block * d_numEigs + eig];
-  return (res / d_numBlocks);
-}
-
 
 Discretizer::~Discretizer()
 {

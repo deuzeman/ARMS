@@ -63,7 +63,15 @@ Data::Data(char const *filename)
   delete[] buffer;
   
   d_average.resize(d_data.cols());
+  d_error.resize(d_data.cols());
+
   d_average = d_data.colwise().mean();
+  d_error = d_data.square().colwise().mean();
+  d_error -= d_average.square();
+  d_error = d_error.sqrt();
+
+  std::cout << "[DEBUG] d_average: " << d_average << std::endl;
+  std::cout << "[DEBUG] d_error: " << d_error << std::endl;
 
   d_cumulant.resizeLike(d_data);
   Eigen::ArrayXd tempVec(d_data.rows()); // We need contiguous data, so a temporary vector
@@ -81,6 +89,14 @@ double *Data::average() const
   double *res = new double[d_data.cols()];
   for (size_t idx = 0; idx < d_data.cols(); ++idx)
     res[idx] = d_average[idx];
+  return res;
+}
+
+double *Data::error() const
+{
+  double *res = new double[d_data.cols()];
+  for (size_t idx = 0; idx < d_data.cols(); ++idx)
+    res[idx] = d_error[idx];
   return res;
 }
 
