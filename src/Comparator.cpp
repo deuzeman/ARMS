@@ -95,7 +95,7 @@ double Comparator::deviation(Point const &point)
     error *= (d_blocks - 1.0) / d_blocks;
     error = std::sqrt(error);
 
-    if (d_type == AVE)
+    if (result > 1.0) // In these cases, we want to make the error relative
       error /= result;
 
     if (Log::ionode)
