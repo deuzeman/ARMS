@@ -3,7 +3,7 @@
 #include <Comparator.h>
 #include <Log.h>
 
-Comparator::Comparator(Data &data, Params &params)
+Comparator::Comparator(Data &data, Params &params, int type)
 : d_ranmat(params.N, params.nu, data.minEv(), data.maxEv()), 
   d_aver(data.average()),
   d_av_err(data.error()),
@@ -13,7 +13,7 @@ Comparator::Comparator(Data &data, Params &params)
   d_minEv(data.minEv()),
   d_blocks(params.blocks),
   d_prec(0.5 * params.prec),
-  d_type(AVE),
+  d_type(type),
   d_disc(data.flatPerColumn(), data.numSamples(), d_eigs, d_blocks),
   d_jack(new double[d_blocks]),
   d_cumdist(new double[d_levels])

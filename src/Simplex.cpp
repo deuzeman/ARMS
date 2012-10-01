@@ -2,8 +2,8 @@
 #include <iomanip>
 #include <Log.h>
 
-Simplex::Simplex(Data &data, Params &params)
-: d_dim(0), d_prec(params.prec), d_comp(data, params), d_values(0)
+Simplex::Simplex(Data &data, Params &params, int type)
+: d_dim(0), d_prec(params.prec), d_comp(data, params, type), d_values(0)
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
   
@@ -38,9 +38,12 @@ Simplex::Simplex(Data &data, Params &params)
   if (Log::ionode)
   {
     log() << *this << std::endl;
-  // We want our values precise enough, so let's request things an order or magnitude
-  // better than we would like this minimization to be.
-    log() << "Calculating associated values.\n" << std::endl;
+    // We want our values precise enough, so let's request things an order or magnitude
+    // better than we would like this minimization to be
+    if (d_comp.type() == Comparator::AVE)
+      log() << "Calculating associated values according to average fitting.\n" << std::endl;
+    else
+      log() << "Calculating associated values according to KS statistics.\n" << std::endl;
   }
   recalculate();  
   if (Log::ionode)
@@ -71,18 +74,6 @@ void Simplex::recalculate()
 
   sort();
   calcCenterOfGravity();
-}
-
-double Simplex::getVal(Point const &point)
-{
-  switch (d_weight)
-  {
-    case KOL:
-      return d_comp.kolmogorov(point);
-    case AVE:
-    default:
-      return (-1.0);
-  }
 }
 
 void Simplex::sort()
@@ -207,11 +198,11 @@ std::ostream &operator<<(std::ostream &out, Simplex const &simplex)
   return out;
 }
 
-void Simplex::setWeight(Weight w)
+void Simplex::setType(int type)
 {
-  if (d_weight != w)
+  if (d_comp.type() != type)
   {
-    d_weight = w;
+    d_comp.setType(type);
     recalculate();
   }
 }

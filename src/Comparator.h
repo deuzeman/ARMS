@@ -32,7 +32,7 @@ class Comparator
     int     d_rank;
     int     d_nodes;
 
-    int    d_type;
+    int     d_type;
 
   // The following provides scratch space
   Discretizer d_disc;
@@ -40,7 +40,7 @@ class Comparator
   double *d_cumdist;
   
   public:
-    Comparator(Data &data, Params &params);
+    Comparator(Data &data, Params &params, int type);
     ~Comparator();
     
     double deviation(Point const &point);

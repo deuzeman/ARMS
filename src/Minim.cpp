@@ -12,11 +12,11 @@ Simplex const &Minim::reduce()
     // Check if this is already a solution to the problem
     if (d_simplex.converged())
     {
-      if (d_simplex.getWeight() == AVE)
+      if (d_simplex.type() == Comparator::AVE)
       {
         if (Log::ionode)
           log() << "Simplex values indicate heuristic convergence using average value.\nSwitching to KS.\n";
-        d_simplex.setWeight(KOL);
+        d_simplex.setType(Comparator::KOL);
         if (Log::ionode)
           log() << "Under changed weighting, simplex has assumed the following form:\n" << d_simplex << '\n' << std::endl;
         continue;

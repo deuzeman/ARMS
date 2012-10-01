@@ -7,24 +7,24 @@
 
 class Simplex
 {
-  size_t   d_dim;
-  bool     d_active[5];
-  Point   **d_points;
-  double **d_values;
+  size_t     d_dim;
+  bool       d_active[5];
+  Point    **d_points;
+  double   **d_values;
   
   double     d_prec;
   Comparator d_comp;
     
-  Point  d_cog;
-  Point  d_proposal;
-  double d_propValue;
+  Point      d_cog;
+  Point      d_proposal;
+  double     d_propValue;
   
-  int    d_rank;
+  int        d_rank;
   
   friend std::ostream &operator<<(std::ostream &out, Simplex const &simplex);
   
   public:
-    Simplex(Data &data, Params &params, Weight w = KOL);
+    Simplex(Data &data, Params &params, int type);
     ~Simplex();
     
     size_t constructProposal(double coeff);
@@ -42,7 +42,7 @@ class Simplex
     bool converged() const;
     
     void writeProposal() const;
-    void setType(int);
+    void setType(int type);
     int type() const;
   
   private:
@@ -91,15 +91,13 @@ inline void Simplex::writeProposal() const
   log() << d_proposal << std::endl;
 }
 
-inline void Simplex::setType(int type)
+inline double Simplex::getVal(Point const &point)
 {
-  d_comp.setType(type);
-  recalculate();
+  return d_comp.deviation(point);
 }
 
 inline int Simplex::type() const
 {
   return d_comp.type();
 }
-
 

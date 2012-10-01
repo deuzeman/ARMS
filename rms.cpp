@@ -35,7 +35,6 @@ int main(int argc, char **argv)
       << "eigMax = ...\n"
       << "iter   = ...\n"
       << "output = ...\n\n"
-      << "Double arguments for the parameters give the best guess (first) and scale (second)\n"
       << "The name of this input file should be the only argument.\n"
       << "Now exiting." << std::endl;
     }
