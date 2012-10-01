@@ -43,7 +43,7 @@ RanMat::~RanMat()
   delete[] d_result;
 }
 
-void RanMat::calculate(Point const &params, size_t iter)
+size_t RanMat::calculate(Point const &params, size_t iter)
 {
   double const static sqrt1_2 = std::sqrt(2) / 2.0;
   double const static sqrt8   = std::sqrt(8);
@@ -90,6 +90,7 @@ void RanMat::calculate(Point const &params, size_t iter)
     for (size_t eig = 0; eig < d_numEigs; ++eig)
       d_result[eig * d_samples + ctr] = normalize * d_slv.eigenvalues().coeff(d_eigMin + eig);
   }
+  return d_samples;
 }
 
 double RanMat::average(int eig) const

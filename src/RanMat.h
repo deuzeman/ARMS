@@ -48,7 +48,7 @@ class RanMat
     RanMat(size_t const N, size_t const nu, int const eigMin, int const eigMax);
     ~RanMat();
 
-    void calculate(Point const &params, size_t iter);
+    size_t calculate(Point const &params, size_t iter);
 
     size_t eigToIndex(int eig) const;
     

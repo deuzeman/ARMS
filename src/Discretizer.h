@@ -52,6 +52,6 @@ inline double Discretizer::average(unsigned long const &eig) const
 
 inline double Discretizer::average(unsigned long const &eig, unsigned long const &block) const
 {
-  return ((d_mean_total[eig] - d_mean_blocks[block * d_numEigs + eig]) / (d_numBlocks - 1));
+  return ((d_mean_total[eig] * d_numBlocks - d_mean_blocks[block * d_numEigs + eig]) / (d_numBlocks - 1));
 }
 

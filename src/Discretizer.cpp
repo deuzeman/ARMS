@@ -30,7 +30,7 @@ void Discretizer::calculate(RanMat const &ranmat)
 {
   double const *res = ranmat.result();
   unsigned long rms = ranmat.numSamples();
-  
+
   // Sum the data block-by-block
   for (unsigned long eig = 0; eig < d_numEigs; ++eig)
     for (unsigned long samp = 0; samp < rms; ++samp)
@@ -61,7 +61,7 @@ void Discretizer::calculate(RanMat const &ranmat)
       ++d_hist_blocks[(samp % d_numBlocks) * d_numLevels * d_numEigs + d_numLevels * eig + data_col[samp]];
   }
 
-  // The binning data can be removed, it was just an intermediate notation
+  // The binning data can be removed, it was just intermediate notation
   delete[] data;
   
   // We have now gathered the overall data per block per node.
@@ -76,11 +76,14 @@ void Discretizer::calculate(RanMat const &ranmat)
   double avfac = static_cast< double >(d_numBlocks) / d_sampTotal;
 
   for (unsigned long eig = 0; eig < d_numEigs; ++eig)
+  {
+    d_mean_total[eig] = 0;
     for (unsigned long block = 0; block < d_numBlocks; ++block)
     {
       d_mean_blocks[block * d_numEigs + eig] *= avfac;
       d_mean_total[eig] += d_mean_blocks[block * d_numEigs + eig] / d_numBlocks;
     }
+  }
   
   // Aggregate the histograms globally
   unsigned long *glob_hist_blocks = new unsigned long[d_numLevels * d_numEigs * d_numBlocks];

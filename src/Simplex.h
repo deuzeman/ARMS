@@ -24,7 +24,7 @@ class Simplex
   friend std::ostream &operator<<(std::ostream &out, Simplex const &simplex);
   
   public:
-    Simplex(Data &data, Params &params, int type);
+    Simplex(Data &data, Params &params, int type = Comparator::AVE);
     ~Simplex();
     
     size_t constructProposal(double coeff);
@@ -42,9 +42,10 @@ class Simplex
     bool converged() const;
     
     void writeProposal() const;
+
     void setType(int type);
     int type() const;
-  
+
   private:
     void construct(double coeff);
     size_t position(double comp) const;
@@ -100,4 +101,5 @@ inline int Simplex::type() const
 {
   return d_comp.type();
 }
+
 

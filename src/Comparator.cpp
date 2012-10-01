@@ -50,8 +50,7 @@ double Comparator::deviation(Point const &point)
       log() << "  >>  Requesting " << needed << " samples." << std::endl;
 
     // Calculate as much data as we think we will require
-    d_ranmat.calculate(point, needed);
-    samples += needed;
+    samples += d_nodes * d_ranmat.calculate(point, needed);
     d_disc.calculate(d_ranmat);
 
     // Calculate the main result
@@ -59,7 +58,7 @@ double Comparator::deviation(Point const &point)
     if (d_type == AVE)
       for (size_t eig = 0; eig < d_eigs; ++eig)
       {
-        double chi = d_disc.average(eig) - d_aver[eig];
+        double chi = (d_disc.average(eig) - d_aver[eig]) / d_av_err[eig];
         result += chi * chi;
       }
     else
@@ -95,6 +94,9 @@ double Comparator::deviation(Point const &point)
     }
     error *= (d_blocks - 1.0) / d_blocks;
     error = std::sqrt(error);
+
+    if (d_type == AVE)
+      error /= result;
 
     if (Log::ionode)
       log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;

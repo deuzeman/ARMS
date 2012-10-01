@@ -70,9 +70,6 @@ Data::Data(char const *filename)
   d_error -= d_average.square();
   d_error = d_error.sqrt();
 
-  std::cout << "[DEBUG] d_average: " << d_average << std::endl;
-  std::cout << "[DEBUG] d_error: " << d_error << std::endl;
-
   d_cumulant.resizeLike(d_data);
   Eigen::ArrayXd tempVec(d_data.rows()); // We need contiguous data, so a temporary vector
   

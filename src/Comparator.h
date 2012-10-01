@@ -66,3 +66,4 @@ inline int Comparator::type() const
 {
   return d_type;
 }
+
