@@ -3,7 +3,7 @@
 #include <Log.h>
 
 Simplex::Simplex(Data &data, Params &params, int type)
-: d_dim(0), d_prec(params.prec), d_comp(data, params, type), d_values(0)
+: d_dim(0), d_prec_a(params.prec_a), d_prec_k(params.prec_k), d_comp(data, params, type), d_values(0)
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
   
@@ -206,3 +206,11 @@ void Simplex::setType(int type)
     recalculate();
   }
 }
+
+bool Simplex::converged() const
+{
+  double prec = (d_comp.type() == Comparator::AVE) ? d_prec_a : d_prec_k;
+
+  return ((*d_values[d_dim - 1] - *d_values[0]) < prec);
+}
+

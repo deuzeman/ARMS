@@ -12,7 +12,8 @@ Comparator::Comparator(Data &data, Params &params, int type)
   d_eigs(data.numCols()), 
   d_minEv(data.minEv()),
   d_blocks(params.blocks),
-  d_prec(0.5 * params.prec),
+  d_prec_a(0.5 * params.prec_a),
+  d_prec_k(0.5 * params.prec_k),
   d_type(type),
   d_disc(data.flatPerColumn(), data.numSamples(), d_eigs, d_blocks),
   d_jack(new double[d_blocks]),
@@ -44,7 +45,8 @@ double Comparator::deviation(Point const &point)
 
   d_disc.clear();
 
-  while ((error > d_prec) && (samples < 1000000))
+  double prec = (d_type == AVE) ? d_prec_a : d_prec_k;
+  while ((error > prec) && (samples < 1000000))
   {
     if (Log::ionode)
       log() << "  >>  Requesting " << needed << " samples." << std::endl;
@@ -104,9 +106,9 @@ double Comparator::deviation(Point const &point)
     // We'll add a minimum and maximum number of iterations
     // To avoid waiting forever for the 1M measurements
     // or watching the thing skip around in increments of 50.
-    needed = std::min(std::max(roundToBlocks(static_cast< size_t >(std::pow((error / d_prec), 2.0) * samples)), 
+    needed = std::min(std::max(roundToBlocks(static_cast< size_t >(std::pow((error / prec), 2.0) * samples)), 
                                              static_cast< size_t >(1000)), static_cast< size_t >(50000));
-    if (error < d_prec && !d_rank)
+    if (error < prec && !d_rank)
       log() << "  >>  This is sufficient for the currently needed precision.\n" << std::endl;
   }
   if (samples > 1000000)

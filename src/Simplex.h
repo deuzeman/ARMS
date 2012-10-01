@@ -12,7 +12,8 @@ class Simplex
   Point    **d_points;
   double   **d_values;
   
-  double     d_prec;
+  double     d_prec_a;
+  double     d_prec_k;
   Comparator d_comp;
     
   Point      d_cog;
@@ -80,11 +81,6 @@ inline double &Simplex::value(size_t index)
 inline double const &Simplex::value(size_t index) const
 {
   return *d_values[index];
-}
-
-inline bool Simplex::converged() const
-{
-  return ((*d_values[d_dim - 1] - *d_values[0]) < d_prec);
 }
 
 inline void Simplex::writeProposal() const

@@ -26,7 +26,8 @@ class Comparator
     size_t  d_eigs;
     int     d_minEv;
  
-    double  d_prec;
+    double  d_prec_a;
+    double  d_prec_k;
     size_t  d_blocks;
   
     int     d_rank;

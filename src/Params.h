@@ -35,7 +35,8 @@ struct Params
   Point center;
   Point scale;
   
-  double prec;
+  double prec_a;
+  double prec_k;
   size_t blocks;
   
   int eigMin;

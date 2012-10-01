@@ -30,7 +30,8 @@ int main(int argc, char **argv)
                 << "a7     = ... ...\n"
                 << "a8     = ... ...\n"
                 << "blocks = ...\n"
-                << "prec   = ...\n"
+                << "prec_a = ...\n"
+                << "prec_k = ...\n"
                 << "data   = ...\n"
                 << "output = ...\n\n"
                 << "Double arguments for the parameters give the best guess (first) and scale (second)\n"
@@ -57,7 +58,8 @@ int main(int argc, char **argv)
           << "  a7     = " << params.center.coord[3] << '\t' << params.scale.coord[3] << '\n'
           << "  a8     = " << params.center.coord[4] << '\t' << params.scale.coord[4] << '\n'
           << "  blocks = " << params.blocks << '\n'
-          << "  prec   = " << params.prec << '\n'
+          << "  prec_a = " << params.prec_a << '\n'
+          << "  prec_k = " << params.prec_k << '\n'
           << "  data   = " << params.data << '\n'
           << "  output = " << params.output << '\n' 
           << "\nRun on " << nodes << " nodes." << std::endl;
@@ -73,3 +75,4 @@ int main(int argc, char **argv)
   MPI_Finalize();
   return 0;
 }
+
