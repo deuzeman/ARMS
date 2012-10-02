@@ -3,17 +3,21 @@
 #include <Log.h>
 
 Simplex::Simplex(Data &data, Params &params, int type)
-: d_dim(0), d_prec_a(params.prec_a), d_prec_k(params.prec_k), d_comp(data, params, type), d_values(0)
+: d_dim(1), d_prec_a(params.prec_a), d_prec_k(params.prec_k), d_comp(data, params, type), d_values(0)
 {
   MPI_Comm_rank(MPI_COMM_WORLD, &d_rank);
   
   if (Log::ionode)
     log() << "Setting up initial simplex, using: " << std::endl;
-  for (size_t idx = 0; idx < 6; ++idx)
+  for (size_t idx = 0; idx < 5; ++idx)
+  {
     d_active[idx] = (std::abs(params.scale.coord[idx] / params.center.coord[idx]) > 1e-6);
-  for (size_t idx = 0; idx < 6; ++idx)
-    d_dim += d_active[idx] ? 1 : 0;
-  
+    std::cerr << "[DEBUG] " << idx << ": " << params.scale.coord[idx] << "  " << params.center.coord[idx] << std::endl;
+    std::cerr << "[DEBUG] " << idx << ": " << (d_active[idx] ? "ACTIVE" : "PASSIVE") << std::endl;
+  }
+  for (size_t idx = 0; idx < 5; ++idx)
+    d_dim += d_active[idx] ? 1 : 0;  
+
   d_points = new Point*[d_dim];
   std::fill_n(d_points, d_dim, static_cast< Point* >(0));
   d_values = 0;
