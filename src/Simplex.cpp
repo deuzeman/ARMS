@@ -12,8 +12,6 @@ Simplex::Simplex(Data &data, Params &params, int type)
   for (size_t idx = 0; idx < 5; ++idx)
   {
     d_active[idx] = (std::abs(params.scale.coord[idx] / params.center.coord[idx]) > 1e-6);
-    std::cerr << "[DEBUG] " << idx << ": " << params.scale.coord[idx] << "  " << params.center.coord[idx] << std::endl;
-    std::cerr << "[DEBUG] " << idx << ": " << (d_active[idx] ? "ACTIVE" : "PASSIVE") << std::endl;
   }
   for (size_t idx = 0; idx < 5; ++idx)
     d_dim += d_active[idx] ? 1 : 0;  

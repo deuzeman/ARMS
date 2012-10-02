@@ -68,7 +68,6 @@ double Comparator::deviation(Point const &point)
         for (size_t samp = 0; samp < d_levels; ++samp)
         {
           result = std::max(result, std::abs(d_disc(eig, samp) - samp * d_inc));
-//          std::cerr << "[DEBUG] |" << d_disc(eig, samp) << " - " << (samp * d_inc) << "| = " << std::abs(d_disc(eig, samp) - samp * d_inc) << std::endl;
 	}
 
     // Extract the jackknife samples
