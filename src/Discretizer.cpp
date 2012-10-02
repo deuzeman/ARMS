@@ -48,7 +48,7 @@ void Discretizer::calculate(RanMat const &ranmat)
     unsigned long *data_col = data + eig * rms;
     double const *res_col = res + eig * rms;
     for (unsigned long samp = 0; samp < rms; ++samp)
-      while ((data_col[samp] < d_numLevels) && res_col[samp] > d_breaks[(d_numLevels - 1) + data_col[samp]])
+      while ((data_col[samp] < d_numLevels) && (res_col[samp] > d_breaks[eig * (d_numLevels - 1) + data_col[samp]]))
         ++data_col[samp];
   }
 
@@ -99,7 +99,7 @@ void Discretizer::calculate(RanMat const &ranmat)
     for (unsigned long eig = 0; eig < d_numEigs; ++eig)
       for (unsigned long level = 1; level < d_numLevels; ++level)
         d_cum_blocks[block * d_numLevels * d_numEigs + d_numLevels * eig + level] += d_cum_blocks[block * d_numLevels * d_numEigs + d_numLevels * eig + level - 1];
-
+  
   // Produce one sum distribution from the separate jackknife blocks
   std::fill_n(d_cum_total, d_numLevels * d_numEigs, 0.0);
   for (unsigned long block = 0; block < d_numBlocks; ++block)

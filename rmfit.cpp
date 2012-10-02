@@ -66,7 +66,10 @@ int main(int argc, char **argv)
   }
   
   Data data(params.data.c_str());
-  Minim minim(data, params);
+  int type = Comparator::AVE;
+  if (params.prec_a < 1e-12)
+    type = Comparator::KOL;
+  Minim minim(data, params, type);
 
   Simplex const &result = minim.reduce();
   
