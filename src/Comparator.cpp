@@ -103,7 +103,7 @@ double Comparator::deviation(Point const &point)
       error /= result;
 
     if (Log::ionode)
-      log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << error << '.' << std::endl;
+      log() << "  >>  With a total of " << samples << " samples, obtained a value of " << result << " and an error of " << ((result > 1.0) ? (error * result) : error)<< '.' << std::endl;
     
     // We'll add a minimum and maximum number of iterations
     // To avoid waiting forever for the 1M measurements

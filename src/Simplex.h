@@ -47,6 +47,8 @@ class Simplex
     void setType(int type);
     int type() const;
 
+    Point *average() const;
+
   private:
     void construct(double coeff);
     size_t position(double comp) const;
@@ -54,6 +56,7 @@ class Simplex
     void calcCenterOfGravity();
     void recalculate();
     double getVal(Point const &point);
+    void expand();
 };
 
 std::ostream &operator<<(std::ostream &out, Simplex const &simplex);
