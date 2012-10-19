@@ -205,6 +205,15 @@ void Simplex::setType(int type)
   if (d_comp.type() != type)
   {
     d_comp.setType(type);
+    // We have to be careful not to start with too small a setup
+    // for KS minimization, so we blow up the differences between
+    // the solutions here.
+    for (size_t idx = 1; idx < d_dim; ++idx)
+    {
+      *d_points[idx] -= *d_points[0];
+      *d_points[idx] *= 10.0;
+      *d_points[idx] += *d_points[0];
+    }
     recalculate();
   }
 }
